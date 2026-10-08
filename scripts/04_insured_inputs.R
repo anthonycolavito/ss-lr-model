@@ -130,17 +130,42 @@ covered_rate <- bind_rows(rate_hist_all, proj |> select(sex, group, year, rate))
   select(year, age, sex, rate)
 
 # Within "under 20", work rises steeply with age; spreading the group rate
-# evenly would put a 14-year-old at the same rate as a 19-year-old. Reshape
-# ages 14-19 with relative weights (assumed; no single-age data published),
-# rescaled so the group's total covered workers are unchanged.
-teen_shape <- c(`14` = 0.10, `15` = 0.30, `16` = 0.60, `17` = 0.85, `18` = 1.05, `19` = 1.20)
+# evenly would put a 14-year-old at the same rate as a 19-year-old. We reshape
+# ages 14-19 using the Trustees' employment-to-population ratios by age group
+# (Actuarial Study No. 127, 2022 TR, Tables 1-2: 1981-2096 by sex):
+#   ages 16-17  weight = the 16-17 ratio for that year and sex
+#   ages 18-19  weight = the 18-19 ratio
+#   ages 14-15  not covered by the labor survey (it starts at 16); assumed
+#               0.15 and 0.40 times the 16-17 ratio
+# Years before 1981 use 1981's shape. The weights are then rescaled so the
+# group's total covered workers match Supplement 4.B5 exactly.
+#
+# Caveat: the ratios are point-in-time (an average month), while a covered
+# worker is anyone with earnings at any time in the year. Rescaling to the
+# 4.B5 total applies the same annual-vs-monthly uplift at every teen age;
+# summer jobs probably make that uplift larger at 16-17 than at 18-19.
+source("R/read_studies.R")
+as127 <- read_as127_employment() |> filter(group %in% c("16_17", "18_19"))
+teen_ratio <- as127 |>
+  pivot_wider(names_from = group, values_from = ratio) |>
+  right_join(expand_grid(year = years, sex = factor(c("M", "F"), levels = c("M", "F"))),
+             by = c("year", "sex")) |>
+  group_by(sex) |> arrange(year) |>
+  fill(`16_17`, `18_19`, .direction = "updown") |>
+  ungroup()
+teen_weights <- teen_ratio |>
+  reframe(year, sex,
+          age = list(14:19),
+          w = Map(function(a, b) c(0.15 * a, 0.40 * a, a, a, b, b), `16_17`, `18_19`)) |>
+  unnest(c(age, w))
+
 teen_pop <- pop_jul |>
   filter(age %in% 14:19) |>
   group_by(year, sex, age) |> summarise(pop = sum(pop), .groups = "drop")
 teen_pop <- bind_rows(teen_pop,
                       expand_grid(year = 1937:1940, teen_pop |> filter(year == 1941) |> select(-year)))
 teen_adj <- teen_pop |>
-  mutate(w = teen_shape[as.character(age)]) |>
+  inner_join(teen_weights, by = c("year", "sex", "age")) |>
   group_by(year, sex) |>
   mutate(adj = w * sum(pop) / sum(w * pop)) |>   # keeps sum(rate * pop) unchanged
   ungroup() |>

@@ -1,22 +1,25 @@
-# Insured-status simulation (methodology section 3.1, simplified).
+# Insured-status simulation (methodology section 3.1).
 #
 # For one birth cohort and sex, simulate N work histories from age 13 to 84.
-# Each year a record either has covered earnings or not, and if covered earns
-# 0-4 quarters of coverage (QCs) depending on where its earnings fall relative
-# to the QC amount. From the accumulated QCs we read off, at each age, whether
-# the record is fully insured and disability insured.
+# Each year a record either has covered earnings or not; if covered it earns
+# 0-4 quarters of coverage (QCs) depending on where its earnings fall against
+# the QC amount. From the accumulated QCs we read off, at each age, whether the
+# record is fully insured and disability insured.
 #
-# Who works: record i is a covered worker at age a if
-#     rho * eta_i + sqrt(1 - rho^2) * e_ia  <  qnorm(p_a)
-# where eta_i is a fixed "attachment to covered work", e_ia is yearly noise,
-# and p_a is the covered-worker rate for that age, sex and year. This hits p_a
-# exactly in expectation; rho sets how much the same people work every year.
-# rho plays the role of OCACT's SLCT/SRCH parameters and is calibrated to the
-# historical insured rates in Supplement 4.C2.
+# Two ways of choosing who works each year:
 #
-# How many QCs: a covered worker's earnings percentile u (persistent, with
-# correlation rho_e) maps to earnings through the distribution relative to the
-# median; QCs = number of n in 1..4 with earnings >= n x QC amount.
+#   "ocact"   OCACT's method. The number of non-covered records is set by the
+#             covered-worker rate; they are chosen by a search that favors
+#             records with at least SLCT consecutive prior years without QCs,
+#             looking at most SRCH records per pick (src/insured_select.cpp).
+#             Covered records then draw QCs independently each year from the
+#             earnings distribution.
+#
+#   "latent"  Our first version, kept for comparison. Each record has a fixed
+#             attachment to covered work plus yearly noise (one persistence
+#             parameter, rho), and a persistent earnings rank.
+
+Rcpp::sourceCpp("src/insured_select.cpp")
 
 #' Cumulative share of covered workers earning below `ratio` x median.
 frac_cdf <- function(ratio, frac_points, low_power) {
@@ -36,49 +39,30 @@ qcs_needed_fully <- function(cohort, t) {
   pmin(40, pmax(6, elapsed))
 }
 
-#' Simulate one cohort and sex.
-#'
-#' @param cohort   Birth year.
-#' @param p        Covered-worker rates at ages 13..84 for this cohort (vector, NA
-#'                 or 0 where the year is before 1937).
-#' @param qc_ratio QC amount / median earnings at ages 13..84 (vector).
-#' @param N        Number of records.
-#' @param rho      Persistence of covered work (0 = independent each year).
-#' @param rho_e    Persistence of earnings rank among covered workers.
-#' @return Data frame: age, fully (share fully insured), disability (share
-#'   disability insured; ages 13-69), mean_qc.
-simulate_cohort <- function(cohort, p, qc_ratio, frac_points, low_power,
-                            N = 30000, rho = 0.8, rho_e = 0.8) {
-  ages <- 13:84
-  A <- length(ages)
-  # Years outside 1937-2100 have no data; nobody has covered work then.
+#' Prepare a cohort's year-by-year inputs: zero out years without data (before
+#' 1937 or after 2100) and turn QC-to-median ratios into QC thresholds.
+cohort_setup <- function(p, qc_ratio, frac_points, low_power) {
   outside <- is.na(p) | is.na(qc_ratio)
   p[outside] <- 0
   qc_ratio[outside] <- 1
+  # thr[j, n]: share of covered workers earning less than n QCs' worth at age j
+  thr <- sapply(1:4, function(n) frac_cdf(n * qc_ratio, frac_points, low_power))
+  list(p = p, thr = thr)
+}
 
-  # Thresholds: share of covered workers earning fewer than n QCs' worth.
-  thr <- sapply(1:4, function(n) frac_cdf(n * qc_ratio, frac_points, low_power))  # A x 4
-
-  eta  <- rnorm(N)
-  zeta <- rnorm(N)
-  qcs <- matrix(0L, N, A)
-  for (j in seq_len(A)) {
-    if (p[j] <= 0) next
-    works <- rho * eta + sqrt(1 - rho^2) * rnorm(N) < qnorm(p[j])
-    u <- pnorm(rho_e * zeta + sqrt(1 - rho_e^2) * rnorm(N))
-    qcs[, j] <- works * ((u >= thr[j, 1]) + (u >= thr[j, 2]) + (u >= thr[j, 3]) + (u >= thr[j, 4]))
-  }
-
-  cum <- t(apply(qcs, 1, cumsum))                        # QCs to date, N x A
-  years <- cohort + ages
-  need <- qcs_needed_fully(cohort, years)
+#' Fully and disability insured shares by age, from a records x ages QC matrix.
+#'
+#' Disability insured = fully insured and recent work:
+#'   age 31+   20 QCs in the last 10 years (40 quarters)
+#'   24-30     QCs since age 21 >= half the quarters elapsed (at least 6)
+#'   under 24  6 QCs in the last 3 years
+insured_status <- function(qcs, cohort, ages = 13:84) {
+  N <- nrow(qcs); A <- length(ages)
+  cum <- t(apply(qcs, 1, cumsum))
+  need <- qcs_needed_fully(cohort, cohort + ages)
   fully <- sweep(cum, 2, need, ">=")
 
-  # Disability insured: fully insured and recent work.
-  #   age 31+: 20 QCs in the last 10 years (40 quarters)
-  #   24-30:   QCs since age 21 >= half the quarters elapsed (at least 6)
-  #   under 24: 6 QCs in the last 3 years
-  roll <- function(k) {                                  # QCs in last k years
+  roll <- function(k) {
     out <- cum
     if (k < A) out[, (k + 1):A] <- cum[, (k + 1):A] - cum[, 1:(A - k)]
     out
@@ -96,5 +80,70 @@ simulate_cohort <- function(cohort, p, qc_ratio, frac_points, low_power,
   data.frame(age = ages,
              fully = colMeans(fully),
              disability = ifelse(ages <= 69, colMeans(disab), NA),
-             mean_qc = colMeans(qcs))
+             mean_qc = colMeans(qcs),
+             share_covered = colMeans(qcs > 0))
+}
+
+#' OCACT method: simulate one cohort and sex.
+#'
+#' @param cohort    Birth year.
+#' @param p         Covered-worker rates at ages 13..84 (NA outside 1937-2100).
+#' @param qc_ratio  QC amount / median earnings at ages 13..84.
+#' @param slct,srch SLCT and SRCH at ages 13..84 (integer vectors).
+#' @param N         Number of records (OCACT uses 30,000).
+simulate_cohort_ocact <- function(cohort, p, qc_ratio, frac_points, low_power,
+                                  slct, srch, N = 30000) {
+  ages <- 13:84; A <- length(ages)
+  s <- cohort_setup(p, qc_ratio, frac_points, low_power)
+  qcs <- matrix(0L, N, A)
+  zero_run <- integer(N)
+  for (j in seq_len(A)) {
+    n_out <- round((1 - s$p[j]) * N)
+    out <- select_noncovered(zero_run, n_out, slct[j], srch[j])
+    u <- runif(N)
+    q <- (u >= s$thr[j, 1]) + (u >= s$thr[j, 2]) + (u >= s$thr[j, 3]) + (u >= s$thr[j, 4])
+    q[out] <- 0L
+    qcs[, j] <- q
+    zero_run <- ifelse(q == 0L, zero_run + 1L, 0L)
+  }
+  insured_status(qcs, cohort, ages)
+}
+
+#' Latent-attachment method (first version): simulate one cohort and sex.
+simulate_cohort_latent <- function(cohort, p, qc_ratio, frac_points, low_power,
+                                   N = 30000, rho = 0.8, rho_e = 0.8) {
+  ages <- 13:84; A <- length(ages)
+  s <- cohort_setup(p, qc_ratio, frac_points, low_power)
+  eta <- rnorm(N); zeta <- rnorm(N)
+  qcs <- matrix(0L, N, A)
+  for (j in seq_len(A)) {
+    if (s$p[j] <= 0) next
+    works <- rho * eta + sqrt(1 - rho^2) * rnorm(N) < qnorm(s$p[j])
+    u <- pnorm(rho_e * zeta + sqrt(1 - rho_e^2) * rnorm(N))
+    qcs[, j] <- works * ((u >= s$thr[j, 1]) + (u >= s$thr[j, 2]) + (u >= s$thr[j, 3]) + (u >= s$thr[j, 4]))
+  }
+  insured_status(qcs, cohort, ages)
+}
+
+#' SLCT and SRCH by age (13..84) from a small set of band values.
+#'
+#' The methodology says SRCH is generally lower at younger ages and SLCT is
+#' lower for the very young, but publishes no values. We use three bands:
+#'   13-17   SLCT 1, SRCH = young_srch (teen work is sporadic)
+#'   18-24   SLCT = slct_mid, SRCH = srch
+#'   25-84   SLCT = slct, SRCH = srch
+age_params <- function(slct, srch, slct_mid = max(1, slct - 1), young_srch = 3) {
+  ages <- 13:84
+  list(slct = as.integer(ifelse(ages <= 17, 1, ifelse(ages <= 24, slct_mid, slct))),
+       srch = as.integer(ifelse(ages <= 17, young_srch, srch)))
+}
+
+#' Grade women's SLCT/SRCH toward men's as women's covered-worker rate
+#' approaches men's (methodology 3.1.c, footnote 2): women's own values below
+#' 90% of the men's rate, men's values at or above 100%, linear in between.
+grade_female_params <- function(f_params, m_params, p_f, p_m) {
+  w <- pmin(1, pmax(0, (p_f / pmax(p_m, 1e-9) - 0.9) / 0.1))
+  w[is.na(w)] <- 0
+  list(slct = as.integer(round((1 - w) * f_params$slct + w * m_params$slct)),
+       srch = as.integer(round((1 - w) * f_params$srch + w * m_params$srch)))
 }
