@@ -13,7 +13,7 @@ Every file in `data-raw/` is listed here with where it came from and when. Files
 | `supplement/supplement25_all.xlsx` | [Annual Statistical Supplement, 2025](https://www.ssa.gov/policy/docs/statcomps/supplement/2025/index.html) | 2026-10-08 | All 175 tables, one sheet each, named by table number. Beneficiary data are December 2024 |
 | `supplement/2026/*.xlsx` | [Annual Statistical Supplement, 2026](https://www.ssa.gov/policy/docs/statcomps/supplement/2026/index.html) (partial release) | 2026-10-08 | One workbook per section: 5.A–5.H, 5.J, 5.L, 5.M, 6.A–6.F. Beneficiary data are December 2025. Sections 2.A, 4.B, 4.C and a few 5.A tables not yet released; use the 2025 edition for those |
 | `oact_wages/avg_and_median_wages_2023.xlsx` | [OCACT wage statistics: central tendency](https://www.ssa.gov/OACT/COLA/central.html) | 2026-10-08 | Average and median net compensation (W-2 wages) and their ratio, 1991–2023. 2010 and 2019 definition changes flagged with "b" |
-| `oact_wages/wage_earner_distribution_2023.xlsx` | [OCACT wage statistics: distribution by net compensation](https://www.ssa.gov/cgi-bin/netcomp.cgi?year=2023) | 2026-10-08 | 2023: 173.7 million wage earners in 59 brackets from under $5,000 to $50 million+, with counts and aggregate amounts |
+| `oact_wages/wage_earner_distribution_{2000,2007,2019,2023}.xlsx` | [OCACT wage statistics: distribution by net compensation](https://www.ssa.gov/cgi-bin/netcomp.cgi?year=2023) | 2026-10-08 | Wage earners in 59 brackets from under $5,000 to $50 million+, with counts and aggregate amounts. 2000, 2007, 2019 are business-cycle peaks. Each year's implied average matches the central-tendency file to the cent |
 
 ## Still to add
 
@@ -24,3 +24,7 @@ Every file in `data-raw/` is listed here with where it came from and when. Files
 ## Program parameters
 
 Historical and projected program rules (AWI, COLAs, taxable maximum, bend points, QC amounts, NRA, reduction and delayed-credit factors) come from the ranypia package's `current_law()` policy object, built from the 2026 TR. They are not duplicated in `params/`.
+
+## Definitions
+
+**Net compensation** (OCACT wage statistics): compensation subject to federal income tax as reported on Forms W-2, plus contributions to deferred compensation plans, minus deferred-compensation distributions already included in taxable compensation. It is the basis of the AWI. It covers all W-2 wage earners, including those in jobs not covered by Social Security, and excludes self-employment income. For 2023: $11.10 trillion across 173,670,935 wage earners, an average of $63,932.64.
