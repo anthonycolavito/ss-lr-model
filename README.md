@@ -27,4 +27,12 @@ The one rule: anything in `data/` or `outputs/` can be rebuilt from `data-raw/` 
 
 ## Status
 
-Phase 0: data collected; `scripts/01_import_population.R` done. Planning and checklist live in the build guide (Claude doc).
+Phase 0 (data and parameters) is done. Run in order:
+
+| Script | Builds | Checked against |
+| --- | --- | --- |
+| `01_import_population.R` | Population by year, age, sex, marital status (Dec 31 and Jul 1) | TR V.A3, within rounding |
+| `02_import_mortality.R` | Death probabilities 1900–2100 | TR V.A4 life expectancy, within 0.06 years |
+| `03_program_parameters.R` | Program rules by year and birth cohort, from ranypia | TR V.C1–V.C3, exact except the 1999 COLA |
+
+Next: Phase 1, insured status. Planning and the full checklist live in the build guide (Claude doc).
