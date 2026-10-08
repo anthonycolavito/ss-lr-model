@@ -76,7 +76,7 @@ read_tr_single_year <- function(sheet, cols,
   keep <- !is.na(year) & section %in% c("Historical data", "Intermediate")
 
   out <- data.frame(year = year[keep], section = section[keep])
-  for (cn in cols) out[[cn]] <- as.numeric(x[[cn]][keep])
+  for (cn in cols) out[[cn]] <- tr_number(x[[cn]][keep])
   stopifnot(!anyDuplicated(out$year))
   out
 }
