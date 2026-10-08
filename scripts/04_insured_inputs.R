@@ -197,21 +197,25 @@ cat("Projection scale factor: range",
     paste(round(range(proj$scale), 3), collapse = " to "), "\n")
 covered_projection_note <- list(trend = g, aa = a1$aa, tr_change = tr_change)
 
-covered_rate <- bind_rows(rate_hist_all, proj |> select(sex, group, year, rate)) |>
-  inner_join(age_to_bgroup, by = "group", relationship = "many-to-many") |>
-  select(year, age, sex, rate)
+# ---- Step 4b: from age groups to single ages ---------------------------------
+# Group rates for every year, history and projection:
+group_rates <- bind_rows(rate_hist_all, proj |> select(sex, group, year, rate))
+pop_single <- pop_jul |>
+  group_by(year, sex, age) |> summarise(pop = sum(pop), .groups = "drop") |>
+  filter(age %in% 14:84)
+pop_single <- bind_rows(pop_single,
+                        expand_grid(year = 1937:1940, pop_single |> filter(year == 1941) |> select(-year)))
 
-# Within "under 20", work rises steeply with age; spreading the group rate
-# evenly would put a 14-year-old at the same rate as a 19-year-old. We reshape
-# ages 14-19 using the Trustees' employment-to-population ratios by age group
-# (Actuarial Study No. 127, 2022 TR, Tables 1-2: 1981-2096 by sex):
+# (1) Ages 14-19 ("under 20"). Work rises steeply with age; spreading the
+# group rate evenly would put a 14-year-old at the same rate as a 19-year-old.
+# We shape ages 14-19 with the Trustees' employment-to-population ratios by age
+# group (Actuarial Study No. 127, 2022 TR, Tables 1-2: 1981-2096 by sex):
 #   ages 16-17  weight = the 16-17 ratio for that year and sex
 #   ages 18-19  weight = the 18-19 ratio
 #   ages 14-15  not covered by the labor survey (it starts at 16); assumed
 #               0.15 and 0.40 times the 16-17 ratio
-# Years before 1981 use 1981's shape. The weights are then rescaled so the
-# group's total covered workers match Supplement 4.B5 exactly.
-#
+# Years before 1981 use 1981's shape. The weights are rescaled so the group's
+# total covered workers match Supplement 4.B5 exactly.
 # Caveat: the ratios are point-in-time (an average month), while a covered
 # worker is anyone with earnings at any time in the year. Rescaling to the
 # 4.B5 total applies the same annual-vs-monthly uplift at every teen age;
@@ -230,22 +234,71 @@ teen_weights <- teen_ratio |>
           age = list(14:19),
           w = Map(function(a, b) c(0.15 * a, 0.40 * a, a, a, b, b), `16_17`, `18_19`)) |>
   unnest(c(age, w))
-
-teen_pop <- pop_jul |>
+teen_rate <- pop_single |>
   filter(age %in% 14:19) |>
-  group_by(year, sex, age) |> summarise(pop = sum(pop), .groups = "drop")
-teen_pop <- bind_rows(teen_pop,
-                      expand_grid(year = 1937:1940, teen_pop |> filter(year == 1941) |> select(-year)))
-teen_adj <- teen_pop |>
   inner_join(teen_weights, by = c("year", "sex", "age")) |>
+  inner_join(group_rates |> filter(group == "u20") |> select(year, sex, u20 = rate),
+             by = c("year", "sex")) |>
   group_by(year, sex) |>
-  mutate(adj = w * sum(pop) / sum(w * pop)) |>   # keeps sum(rate * pop) unchanged
+  mutate(rate = pmin(0.95, u20 * w * sum(pop) / sum(w * pop))) |>   # keeps the group total
   ungroup() |>
-  select(year, sex, age, adj)
-covered_rate <- covered_rate |>
-  left_join(teen_adj, by = c("year", "sex", "age")) |>
-  mutate(rate = ifelse(is.na(adj), rate, pmin(rate * adj, 0.95))) |>
-  select(-adj)
+  select(year, sex, age, rate, pop)
+
+# (2) Ages 20-84. A flat rate across each 5-year group puts a 20-year-old at
+# the same work rate as a 24-year-old, when in fact it climbs through those
+# years as people leave school. That matters for insured status, which hinges
+# on when the first QCs arrive. We smooth while keeping every group's total
+# exact: for each year and sex, the rate by single age is a connected
+# piecewise-linear curve through one value at each group's midpoint, starting
+# from the ages 18-19 level from (1) at age 18.5 so the curve joins the teen
+# rates without a jump, and flat beyond the last midpoint. Midpoint values are
+# adjusted repeatedly until each group's population-weighted average equals
+# its published rate. Rates are capped at 0.99; when the cap binds, the
+# adjustment raises the rest of the group to keep the total.
+adult_groups <- b_groups |> filter(group != "u20")
+mid_b <- (adult_groups$lo + adult_groups$hi) / 2
+grp_of_age <- match(age_to_bgroup$group[match(20:84, age_to_bgroup$age)], adult_groups$group)
+
+smooth_one <- function(target, pop, anchor) {   # target: adult group rates in order
+  x <- target
+  for (it in 1:80) {
+    curve <- pmin(0.99, approx(c(18.5, mid_b), c(anchor, x), xout = 20:84, rule = 2)$y)
+    mean_g <- tapply(curve * pop, grp_of_age, sum) / tapply(pop, grp_of_age, sum)
+    if (max(abs(mean_g - target)) < 1e-5) break
+    x <- x * target / mean_g
+  }
+  curve
+}
+anchors <- teen_rate |> filter(age %in% 18:19) |>
+  group_by(year, sex) |> summarise(anchor = sum(rate * pop) / sum(pop), .groups = "drop")
+adult_rate <- group_rates |>
+  filter(group != "u20") |>
+  group_by(year, sex) |>
+  group_modify(function(gr, key) {
+    ps <- pop_single |> filter(year == key$year, sex == key$sex, age >= 20) |> arrange(age)
+    a0 <- anchors$anchor[anchors$year == key$year & anchors$sex == key$sex]
+    tibble(age = 20:84,
+           rate = smooth_one(gr$rate[match(adult_groups$group, gr$group)], ps$pop, a0))
+  }) |>
+  ungroup()
+
+covered_rate <- bind_rows(teen_rate |> select(year, age, sex, rate),
+                          adult_rate |> select(year, age, sex, rate))
+
+# Check: shaping and smoothing must leave each group's covered workers
+# unchanged. 1937-39 are exempt: work after 65 was not yet covered, so the
+# 65-69 rate is near zero and a continuous curve can't reproduce it exactly.
+chk <- covered_rate |>
+  inner_join(pop_single, by = c("year", "sex", "age")) |>
+  inner_join(age_to_bgroup, by = "age") |>
+  group_by(year, sex, group) |> summarise(w = sum(rate * pop), p = sum(pop), .groups = "drop") |>
+  inner_join(group_rates, by = c("year", "sex", "group")) |>
+  mutate(gap = w / p - rate)
+chk_main <- chk |> filter(year >= 1940)
+cat("Single-age rates: largest change in any group's rate (1940+)",
+    signif(max(abs(chk_main$gap)), 2), "\n")
+stopifnot(max(abs(chk_main$gap)) < 0.002)
+
 covered_rate <- bind_rows(
   covered_rate,
   expand_grid(year = years, age = 13L, sex = factor(c("M", "F"), levels = c("M", "F")), rate = 0)
@@ -267,10 +320,19 @@ med_ratio <- bind_rows(
   med_ratio,
   expand_grid(year = 2024:2100, med_ratio |> filter(year == 2023) |> select(-year))
 )
+# Medians, like rates, step at group edges. Medians can't be added up, so
+# instead of a total-preserving spline we interpolate each year's ratio to the
+# AWI linearly in age between group midpoints (flat beyond the end midpoints:
+# 17 for under 20, 78 for 72+).
+mids <- tibble(group = b_groups$group, mid = (b_groups$lo + b_groups$hi) / 2)
 median_earnings <- med_ratio |>
+  inner_join(mids, by = "group") |>
+  group_by(year, sex) |>
+  group_modify(~ tibble(age = 14:84,
+                        ratio = approx(.x$mid, .x$ratio, xout = 14:84, rule = 2)$y)) |>
+  ungroup() |>
   inner_join(awi, by = "year") |>
   mutate(median = ratio * awi) |>
-  inner_join(age_to_bgroup, by = "group", relationship = "many-to-many") |>
   select(year, age, sex, median)
 median_earnings <- bind_rows(
   median_earnings,
