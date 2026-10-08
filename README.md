@@ -27,4 +27,4 @@ The one rule: anything in `data/` or `outputs/` can be rebuilt from `data-raw/` 
 
 ## Status
 
-Phase 0: data and parameters.
+Phase 0: data collected; `scripts/01_import_population.R` done. Planning and checklist live in the build guide (Claude doc).
