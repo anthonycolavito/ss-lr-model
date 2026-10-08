@@ -128,6 +128,27 @@ cat("Projection scale factor on 2023 rates: range",
 covered_rate <- bind_rows(rate_hist_all, proj |> select(sex, group, year, rate)) |>
   inner_join(age_to_bgroup, by = "group", relationship = "many-to-many") |>
   select(year, age, sex, rate)
+
+# Within "under 20", work rises steeply with age; spreading the group rate
+# evenly would put a 14-year-old at the same rate as a 19-year-old. Reshape
+# ages 14-19 with relative weights (assumed; no single-age data published),
+# rescaled so the group's total covered workers are unchanged.
+teen_shape <- c(`14` = 0.10, `15` = 0.30, `16` = 0.60, `17` = 0.85, `18` = 1.05, `19` = 1.20)
+teen_pop <- pop_jul |>
+  filter(age %in% 14:19) |>
+  group_by(year, sex, age) |> summarise(pop = sum(pop), .groups = "drop")
+teen_pop <- bind_rows(teen_pop,
+                      expand_grid(year = 1937:1940, teen_pop |> filter(year == 1941) |> select(-year)))
+teen_adj <- teen_pop |>
+  mutate(w = teen_shape[as.character(age)]) |>
+  group_by(year, sex) |>
+  mutate(adj = w * sum(pop) / sum(w * pop)) |>   # keeps sum(rate * pop) unchanged
+  ungroup() |>
+  select(year, sex, age, adj)
+covered_rate <- covered_rate |>
+  left_join(teen_adj, by = c("year", "sex", "age")) |>
+  mutate(rate = ifelse(is.na(adj), rate, pmin(rate * adj, 0.95))) |>
+  select(-adj)
 covered_rate <- bind_rows(
   covered_rate,
   expand_grid(year = years, age = 13L, sex = factor(c("M", "F"), levels = c("M", "F")), rate = 0)

@@ -34,5 +34,7 @@ Phase 0 (data and parameters) is done. Run in order:
 | `01_import_population.R` | Population by year, age, sex, marital status (Dec 31 and Jul 1) | TR V.A3, within rounding |
 | `02_import_mortality.R` | Death probabilities 1900–2100 | TR V.A4 life expectancy, within 0.06 years |
 | `03_program_parameters.R` | Program rules by year and birth cohort, from ranypia | TR V.C1–V.C3, exact except the 1999 COLA |
+| `04_insured_inputs.R` | Covered-worker rates, median earnings, QC amounts, earnings distribution, by age, sex, year | Projected covered workers scaled to TR IV.B4 |
+| `05_insured_simulation.R` | Fully and disability insured rates by age, sex, year, 1970–2100 (about 6 minutes) | Supplement 4.C2: fully insured within 2 points (men) and 3.5 points (women) |
 
-Next: Phase 1, insured status. Planning and the full checklist live in the build guide (Claude doc).
+Phase 1 (insured status) is done apart from the disability-rolls adjustment, which waits for Phase 2. Next: Phase 2, disabled workers. Planning and the full checklist live in the build guide (Claude doc).
