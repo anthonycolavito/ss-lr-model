@@ -1,15 +1,16 @@
 # 02_import_mortality.R
 #
-# Reads OCACT's period death probabilities (2026 TR intermediate, 2024-2100,
-# ages 0-119, by sex) and saves them as one tidy table:
-#   year | age | sex | qx
+# Reads OCACT's period death probabilities by sex and single age 0-119:
+# historical (1900-2023) and projected (2024-2100, 2026 TR intermediate), and
+# saves them as one continuous tidy table:
+#   year | age | sex | qx | source ("historical" or "projected")
 #
 # qx is the probability that someone who has reached exact age x during the
 # calendar year dies before reaching x + 1, at that year's mortality rates.
 # We use it to age the disabled-worker and widow(er) populations and to count
 # deaths of insured workers.
 #
-# Input:  data-raw/mortality/DeathProbsE_{M,F}_Alt2_TR2026.csv
+# Input:  data-raw/mortality/DeathProbsE_{M,F}_{Hist,Alt2}_TR2026.csv
 # Check:  data-raw/tr2026/SingleYearTRTables_TR2026.xlsx, Table V.A4
 # Output: data/death_probs.rds
 
@@ -17,31 +18,39 @@ library(readr)
 library(dplyr)
 library(tidyr)
 
-# ---- Step 1: read both files -----------------------------------------------
+# ---- Step 1: read the four files -------------------------------------------
 # Each file has one title line, then a header row: Year, 0, 1, ..., 119.
+# Historical files run 1900-2023; projected files pick up at 2024.
 
-read_qx <- function(path, sex) {
+read_qx <- function(path, sex, source) {
   read_csv(path, skip = 1, show_col_types = FALSE) |>
     pivot_longer(-Year, names_to = "age", values_to = "qx") |>
-    transmute(year = as.integer(Year), age = as.integer(age), sex = sex, qx)
+    transmute(year = as.integer(Year), age = as.integer(age), sex = sex, qx,
+              source = source)
 }
 
 death_probs <- bind_rows(
-  read_qx("data-raw/mortality/DeathProbsE_M_Alt2_TR2026.csv", "M"),
-  read_qx("data-raw/mortality/DeathProbsE_F_Alt2_TR2026.csv", "F")
+  read_qx("data-raw/mortality/DeathProbsE_M_Hist_TR2026.csv", "M", "historical"),
+  read_qx("data-raw/mortality/DeathProbsE_F_Hist_TR2026.csv", "F", "historical"),
+  read_qx("data-raw/mortality/DeathProbsE_M_Alt2_TR2026.csv", "M", "projected"),
+  read_qx("data-raw/mortality/DeathProbsE_F_Alt2_TR2026.csv", "F", "projected")
 ) |>
   mutate(sex = factor(sex, levels = c("M", "F"))) |>
   arrange(year, sex, age)
 
 # ---- Step 2: basic checks --------------------------------------------------
-# Every year 2024-2100 at every age 0-119 for both sexes; probabilities between
-# 0 and 1; and the oldest age should be (close to) certain death.
+# Every year 1900-2100 exactly once at every age 0-119 for both sexes (so the
+# historical and projected files meet without a gap or overlap); probabilities
+# between 0 and 1.
 
 stopifnot(
-  min(death_probs$year) == 2024, max(death_probs$year) == 2100,
-  nrow(death_probs) == (2100 - 2024 + 1) * 120 * 2,
+  min(death_probs$year) == 1900, max(death_probs$year) == 2100,
+  nrow(death_probs) == (2100 - 1900 + 1) * 120 * 2,
+  !anyDuplicated(death_probs[c("year", "age", "sex")]),
   all(death_probs$qx > 0 & death_probs$qx <= 1)
 )
+cat("Historical:", paste(range(death_probs$year[death_probs$source == "historical"]), collapse = "-"),
+    "| projected:", paste(range(death_probs$year[death_probs$source == "projected"]), collapse = "-"), "\n")
 cat("q at age 119, range across years and sexes:",
     range(death_probs$qx[death_probs$age == 119]), "\n")
 
@@ -83,7 +92,7 @@ comparison <- inner_join(ours, va4, by = c("year", "sex"), suffix = c("_ours", "
 
 cat("\nPeriod life expectancy, ours vs V.A4 (selected years):\n")
 print(comparison |>
-        filter(year %in% c(2024, 2026, 2050, 2075, 2100)) |>
+        filter(year %in% c(1940, 1980, 2000, 2023, 2024, 2050, 2100)) |>
         mutate(across(where(is.double), ~ round(.x, 2))),
       n = Inf)
 cat("\nLargest gap, all years:  e(0)", round(max(abs(comparison$gap_e0)), 2),

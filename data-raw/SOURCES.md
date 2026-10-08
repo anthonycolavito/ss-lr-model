@@ -10,6 +10,9 @@ Every file in `data-raw/` is listed here with where it came from and when. Files
 | `population/SSPopJul_Alt2_TR2026.csv` | OCACT historical and projected population, 2026 TR intermediate | 2026-10-08 | July 1, 1941–2100; same layout as the December file. Matches TR Table V.A3 to rounding |
 | `mortality/DeathProbsE_M_Alt2_TR2026.csv` | OCACT death probabilities, 2026 TR intermediate | 2026-10-08 | Males, 2024–2100, ages 0–119; one title line above the header |
 | `mortality/DeathProbsE_F_Alt2_TR2026.csv` | OCACT death probabilities, 2026 TR intermediate | 2026-10-08 | Females, same layout |
+| `mortality/DeathProbsE_{M,F}_Hist_TR2026.csv` | OCACT historical death probabilities, 2026 TR | 2026-10-08 | 1900–2023, ages 0–119; joins the projected files at 2024 with no gap |
+| `mortality/life_tables/CohLifeTables_{M,F}_Alt2_TR2026.csv` | OCACT cohort life tables, 2026 TR intermediate | 2026-10-08 | Birth cohorts 1900–2100: q, l, d, L, T, e by age, plus actuarial functions at 2.3% interest (D, M, N, annuity factors a and 12a). Header on line 5; data from line 7 |
+| `mortality/life_tables/PerLifeTables_{M,F}_Hist_TR2026.csv` | OCACT historical period life tables, 2026 TR | 2026-10-08 | Calendar years 1900–2023, same columns as the cohort tables |
 | `tr2026/TRTables_TR2026.xlsx` | [2026 TR tables](https://www.ssa.gov/oact/TR/2026/TRTables_TR2026.xlsx) | 2026-10-08 | Every TR table, 17 sheets. Adds V.C1 (COLA, AWI, taxable max, 1975–2035), V.C2 (wage-indexed parameters), V.C3 (NRA and DRC schedule), III.A5 (2025 benefits by beneficiary type), VI.H (scheduled benefits) |
 | `supplement/supplement25_all.xlsx` | [Annual Statistical Supplement, 2025](https://www.ssa.gov/policy/docs/statcomps/supplement/2025/index.html) | 2026-10-08 | All 175 tables, one sheet each, named by table number. Beneficiary data are December 2024 |
 | `supplement/2026/*.xlsx` | [Annual Statistical Supplement, 2026](https://www.ssa.gov/policy/docs/statcomps/supplement/2026/index.html) (partial release) | 2026-10-08 | One workbook per section: 5.A–5.H, 5.J, 5.L, 5.M, 6.A–6.F. Beneficiary data are December 2025. Sections 2.A, 4.B, 4.C and a few 5.A tables not yet released; use the 2025 edition for those |
@@ -18,7 +21,6 @@ Every file in `data-raw/` is listed here with where it came from and when. Files
 
 ## Still to add
 
-- `mortality/`: historical death probabilities before 2024, if a phase needs them
 - `supplement/2026/`: sections 2.A, 4.B and 4.C once released
 - `as121/`: tables extracted from Actuarial Study No. 121
 
