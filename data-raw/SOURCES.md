@@ -12,9 +12,11 @@ Every file in `data-raw/` is listed here with where it came from and when. Files
 | `tr2026/TRTables_TR2026.xlsx` | [2026 TR tables](https://www.ssa.gov/oact/TR/2026/TRTables_TR2026.xlsx) | 2026-10-08 | Every TR table, 17 sheets. Adds V.C1 (COLA, AWI, taxable max, 1975–2035), V.C2 (wage-indexed parameters), V.C3 (NRA and DRC schedule), III.A5 (2025 benefits by beneficiary type), VI.H (scheduled benefits) |
 | `supplement/supplement25_all.xlsx` | [Annual Statistical Supplement, 2025](https://www.ssa.gov/policy/docs/statcomps/supplement/2025/index.html) | 2026-10-08 | All 175 tables, one sheet each, named by table number. Beneficiary data are December 2024 |
 | `supplement/2026/*.xlsx` | [Annual Statistical Supplement, 2026](https://www.ssa.gov/policy/docs/statcomps/supplement/2026/index.html) (partial release) | 2026-10-08 | One workbook per section: 5.A–5.H, 5.J, 5.L, 5.M, 6.A–6.F. Beneficiary data are December 2025. Sections 2.A, 4.B, 4.C and a few 5.A tables not yet released; use the 2025 edition for those |
+| `oact_wages/avg_and_median_wages_2023.xlsx` | [OCACT wage statistics: central tendency](https://www.ssa.gov/OACT/COLA/central.html) | 2026-10-08 | Average and median net compensation (W-2 wages) and their ratio, 1991–2023. 2010 and 2019 definition changes flagged with "b" |
 
 ## Still to add
 
+- `oact_wages/`: net compensation distribution by bracket ([netcomp](https://www.ssa.gov/cgi-bin/netcomp.cgi?year=2023)), latest year plus one earlier year
 - `mortality/`: historical death probabilities before 2024, if a phase needs them
 - `supplement/2026/`: sections 2.A, 4.B and 4.C once released
 - `as121/`: tables extracted from Actuarial Study No. 121
