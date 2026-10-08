@@ -22,6 +22,7 @@ A long-range Social Security (OASDI) projection model in R, built to follow the 
 | `outputs/` | Projection results and comparisons against the TR. |
 | `tests/` | Checks that results still match published numbers. |
 | `docs/reference/` | Methodology documents. |
+| `docs/DECISIONS.md` | Every modeling choice, with the reason, the alternatives, and its status. Read this before changing a method. |
 
 The one rule: anything in `data/` or `outputs/` can be rebuilt from `data-raw/` and `params/` by running `scripts/` in order.
 
