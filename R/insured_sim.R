@@ -115,12 +115,19 @@ simulate_cohort_ocact <- function(cohort, p, qc_ratio, frac_points, low_power,
   imm_frac[is.na(imm_frac) | imm_frac < 0] <- 0
   qcs <- matrix(0L, N, A)
   zero_run <- integer(N)
+  cum <- integer(N)                      # QCs to date, reset when a record is re-used
+  need <- qcs_needed_fully(cohort, cohort + ages)
+  half_needed <- pmax(6, 2 * (ages - 21))
+  j21 <- which(ages == 21)
+  st <- data.frame(age = ages, fully = NA_real_, disability = NA_real_,
+                   mean_qc = NA_real_, share_covered = NA_real_)
   for (j in seq_len(A)) {
     if (ages[j] > max_age) break
     # 1. new LPR immigrants
     n_imm <- min(N, round(imm_frac[j] * N))
     imm <- if (n_imm > 0) sample.int(N, n_imm) else integer(0)
     if (n_imm > 0 && j > 1) qcs[imm, 1:(j - 1)] <- 0L
+    if (n_imm > 0) cum[imm] <- 0L
 
     # 2. non-covered workers, never from this year's immigrants: give them a
     #    zero-run the search will never prefer
@@ -137,10 +144,26 @@ simulate_cohort_ocact <- function(cohort, p, qc_ratio, frac_points, low_power,
     qcs[, j] <- q
     zero_run <- ifelse(q == 0L, zero_run + 1L, 0L)
     zero_run[imm] <- as.integer(q[imm] == 0L)
+
+    # 4. insured status at this age, from work histories as they stand now.
+    #    (A record drawn as an immigrant later stands for a different person
+    #    from then on; that must not change status already recorded.)
+    cum <- cum + q
+    fully <- cum >= need[j]
+    a <- ages[j]
+    recent <- if (a >= 31) {
+      rowSums(qcs[, (j - 9):j, drop = FALSE]) >= 20
+    } else if (a >= 24) {
+      rowSums(qcs[, (j21 + 1):j, drop = FALSE]) >= half_needed[j]
+    } else {
+      rowSums(qcs[, max(1, j - 2):j, drop = FALSE]) >= 6
+    }
+    st$fully[j] <- mean(fully)
+    st$disability[j] <- if (a <= 69) mean(fully & recent) else NA
+    st$mean_qc[j] <- mean(q)
+    st$share_covered[j] <- mean(q > 0)
   }
-  out <- insured_status(qcs, cohort, ages)
-  if (max_age < 84) out[out$age > max_age, c("fully", "disability", "mean_qc", "share_covered")] <- NA
-  out
+  st
 }
 
 #' Combine the work-authorized simulation with the temporary or unlawfully

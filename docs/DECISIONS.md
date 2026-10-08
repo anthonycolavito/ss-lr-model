@@ -81,11 +81,12 @@ Status: **Adopted** (in use), **Provisional** (in use, to revisit), **Superseded
 | v1 | Latent attachment, assumed teen ramp, no immigrants | men 1.3, women 2.2 | men +2.9, women +3.7 |
 | v2 | v1 with Study 127 teen shape | men 1.3, women 2.2 | men +1.8, women +2.5 |
 | v3 | OCACT SLCT/SRCH, one value for ages 25+, immigrants | men 3.0, women 4.1 (too low at 25–34, too high at 65–74) | men +3.4, women +1.0 (k at its floor, 0) |
-| v4 | OCACT, SRCH by age group and sex, smoothed single-age inputs | Calibration hits bounds; not run in full | — |
+| v4 | OCACT, SRCH by age group and sex, smoothed single-age inputs | First attempt hit bounds (F-01, F-03); rerunning with the F-03 fix | — |
 
 ## Findings
 
 | ID | Finding | Evidence | Implication |
 | --- | --- | --- | --- |
 | F-01 | The simulation can't reproduce the jump in fully insured rates from 20–24 (76% men) to 25–29 (89%) in Supplement 4.C2 with any one search setting | Men, k = ⅔, 1990–2025 average gap: SRCH 1 gives +14.0 / +5.8 points (20–24 / 25–29); SRCH 30 gives +2.9 / −1.2; SRCH 30,000 gives +1.0 / −6.6. Smoothing covered rates within groups (I-04) changed this little | The selection parameters aren't the binding problem |
-| F-02 | Early-career earnings drive the 20–24 rate: young covered workers in the simulation earn QCs too fast | Scaling medians under 25 by 0.6 moves 20–24 to +1.1 at SRCH 30 (25–29 −1.4, unaffected); by 0.35, to −3.6 | Likely cause: FRAC (I-10) has one shape for all ages, but young workers' earnings are more dispersed (part-year, part-time), so more of their years fall under 1–4 QCs' worth. Candidate fix: age-specific dispersion from Supplement 4.B6 (medians) with 4.B13/4.B5 (averages) |
+| F-02 | Early-career earnings looked like the cause of the 20–24 overshoot, but the data don't support wider dispersion for young workers | Scaling medians under 25 by 0.6 moved 20–24 to +1.1 at SRCH 30. But 2023 taxable mean ÷ median (4.B13 ÷ 4.B5 against 4.B6) is 1.17 for men in their 20s, the same as ages 30–59; fitting a log-scale stretch of the all-ages distribution, with the taxable maximum applied, gives 0.77 for the 20s (less spread than average) and 1.0–1.5 for ages 30–64 | Not adopted. The overshoot was mostly the bug in F-03 |
+| F-03 | Bug: insured status was computed after the whole lifetime was simulated, so a record re-drawn as a new immigrant at a later age had its earlier status wiped too | One cohort (1980, men): fully insured at 20 was 0.810 when stopped at 24 and 0.738 when run to 84. Full runs understated insured rates at younger ages (v1–v3 all affected); calibration stopped at each group's top age, so it saw fewer wipes than the full run, which drove SRCH between its bounds | Fixed: status is now recorded each year as the history stands then (R/insured_sim.R). Identical to the old calculation when there are no immigrants (checked) |

@@ -238,14 +238,14 @@ if (file.exists(calib_file) && !inputs_newer) {
   cat("Calibration: reusing", calib_file, "\n")
 } else {
   t0 <- Sys.time()
-  fits_m <- lapply(k_grid, function(k) {
+  fits_m <- parallel::mclapply(k_grid, mc.cores = 2, FUN = function(k) {
     sl <- calibrate_sex("M", k)
     list(k = k, slct = sl, age62 = age62_check("M", k, sl))
   })
   sse_m <- sapply(fits_m, function(f) sum(f$age62$gap^2))
   best_m <- fits_m[[which.min(sse_m)]]
   m_params <- group_params(best_m$slct)
-  fits_f <- lapply(k_grid, function(k) {
+  fits_f <- parallel::mclapply(k_grid, mc.cores = 2, FUN = function(k) {
     sl <- calibrate_sex("F", k, m_params)
     list(k = k, slct = sl, age62 = age62_check("F", k, sl, m_params))
   })
