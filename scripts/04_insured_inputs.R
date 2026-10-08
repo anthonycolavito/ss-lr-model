@@ -108,22 +108,94 @@ ivb4 <- read_tr_single_year("IV.B4", c("covered_workers", "oasi", "di", "oasdi",
 link <- sum(cw_hist$covered_thousands[cw_hist$year == 2023]) /
   ivb4$covered_workers[ivb4$year == 2023]
 
-base_rate <- rate_hist_all |> filter(year == 2023) |> select(sex, group, rate)
-proj <- expand_grid(year = 2024:2100, base_rate) |>
-  inner_join(pop_group, by = c("year", "sex", "group")) |>
-  group_by(year) |>
-  mutate(implied = sum(rate * pop) / 1000) |>
-  ungroup() |>
-  left_join(ivb4, by = "year")
-target <- proj |> distinct(year, implied, covered_workers) |> arrange(year) |>
-  mutate(target = link * covered_workers) |>
-  fill(target) |>
-  mutate(scale = target / implied)
-proj <- proj |> inner_join(target |> select(year, scale), by = "year") |>
-  mutate(rate = rate * scale)
+# How each age group's rate moves after 2023 follows the Trustees' projected
+# employment-to-population ratios by age group and sex (Actuarial Study No.
+# 127, 2022 TR, intermediate, to 2096; held after): a group's covered rate
+# changes in proportion to its employment ratio. Those ratios rise at older
+# ages as lives lengthen and the NRA rises, which a fixed 2023 profile misses.
+# A single scale factor per year then makes the total match IV.B4.
+#
+# Check: the TR (Program Assumptions, V.C.2) reports age-adjusted covered-worker
+# rates, ages 16+, at the 2020 SS area age distribution: men 68.7% (2024) to
+# 67.9% (2100), women 64.0% to 65.2%. Our 2024 levels sit about a point from
+# the TR's (definitions of the oldest groups differ), so we compare changes.
+# If they still miss, each sex gets a linear trend solved to match the TR's
+# change; the IV.B4 total fixes the overall level, so only the difference
+# between the men's and women's trends is free.
 
-cat("Projection scale factor on 2023 rates: range",
-    paste(round(range(target$scale), 3), collapse = " to "), "\n")
+source("R/read_studies.R")
+emp <- read_as127_employment()
+emp_groups <- c(u20 = "16_19", `20_24` = "20_24", `25_29` = "25_29", `30_34` = "30_34",
+                `35_39` = "35_39", `40_44` = "40_44", `45_49` = "45_49", `50_54` = "50_54",
+                `55_59` = "55_59", `60_61` = "60_64", `62_64` = "60_64", `65_69` = "65_69",
+                `70_71` = "70plus", `72plus` = "70plus")
+emp <- bind_rows(emp, emp |> filter(group %in% c("16_17", "18_19")) |>
+                   group_by(year, sex) |> summarise(ratio = mean(ratio), .groups = "drop") |>
+                   mutate(group = "16_19"))
+emp_index <- expand_grid(year = 2023:2100, sex = factor(c("M", "F"), levels = c("M", "F")),
+                         group = names(emp_groups)) |>
+  mutate(emp_group = emp_groups[group]) |>
+  left_join(emp |> rename(emp_group = group), by = c("year", "sex", "emp_group")) |>
+  group_by(sex, group) |> arrange(year) |> fill(ratio) |>
+  mutate(index = ratio / ratio[year == 2023]) |>
+  ungroup() |> select(year, sex, group, index)
+
+tr_change <- c(M = 67.9 - 68.7, F = 65.2 - 64.0)
+aa_weights <- pop_group |>
+  filter(year == 2020) |>
+  group_by(group) |> summarise(w = sum(pop), .groups = "drop") |>
+  mutate(w = ifelse(group == "u20", w * 4 / 6, w))   # ages 16-19 of 14-19
+age_adjusted <- function(d) {
+  d |> inner_join(aa_weights, by = "group") |>
+    group_by(year, sex) |> summarise(aa = 100 * sum(rate * w) / sum(w), .groups = "drop")
+}
+
+base_rate <- rate_hist_all |> filter(year == 2023) |> select(sex, group, rate)
+project_rates <- function(g) {
+  proj <- expand_grid(year = 2024:2100, base_rate) |>
+    inner_join(emp_index, by = c("year", "sex", "group")) |>
+    mutate(rate = rate * index * (1 + g[as.character(sex)] * (year - 2024) / (2100 - 2024))) |>
+    inner_join(pop_group, by = c("year", "sex", "group")) |>
+    group_by(year) |>
+    mutate(implied = sum(rate * pop) / 1000) |>
+    ungroup() |>
+    left_join(ivb4, by = "year")
+  target <- proj |> distinct(year, implied, covered_workers) |> arrange(year) |>
+    mutate(target = link * covered_workers) |>
+    fill(target) |>
+    mutate(scale = target / implied)
+  proj |> inner_join(target |> select(year, scale), by = "year") |>
+    mutate(rate = rate * scale)
+}
+aa_change <- function(proj) {
+  aa <- age_adjusted(proj) |> filter(year %in% c(2024, 2100)) |>
+    pivot_wider(names_from = year, values_from = aa)
+  list(aa = aa, change = setNames(aa$`2100` - aa$`2024`, as.character(aa$sex)))
+}
+
+proj0 <- project_rates(c(M = 0, F = 0))
+a0 <- aa_change(proj0)
+cat("Age-adjusted change 2024-2100 with Study 127 age paths only: men",
+    sprintf("%+.2f", a0$change["M"]), "| women", sprintf("%+.2f", a0$change["F"]),
+    "(TR: men -0.80, women +1.20)\n")
+
+# Remaining sex gap: only the difference between the trends matters, so fix
+# the men's trend at 0 and solve the women's to match the TR's men-women gap
+# in changes.
+gap_target <- tr_change["F"] - tr_change["M"]
+gap_of <- function(gf) { a <- aa_change(project_rates(c(M = 0, F = gf))); a$change["F"] - a$change["M"] }
+g_f <- uniroot(function(x) gap_of(x) - gap_target, c(-0.3, 0.3))$root
+g <- c(M = 0, F = g_f)
+proj <- project_rates(g)
+a1 <- aa_change(proj)
+cat("Women's relative trend, 2024-2100:", sprintf("%+.1f%%", 100 * g_f), "\n")
+cat("Age-adjusted covered-worker rate, ours (2024 -> 2100): men",
+    round(a1$aa$`2024`[a1$aa$sex == "M"], 1), "->", round(a1$aa$`2100`[a1$aa$sex == "M"], 1),
+    "| women", round(a1$aa$`2024`[a1$aa$sex == "F"], 1), "->", round(a1$aa$`2100`[a1$aa$sex == "F"], 1),
+    "(TR: men 68.7 -> 67.9, women 64.0 -> 65.2)\n")
+cat("Projection scale factor: range",
+    paste(round(range(proj$scale), 3), collapse = " to "), "\n")
+covered_projection_note <- list(trend = g, aa = a1$aa, tr_change = tr_change)
 
 covered_rate <- bind_rows(rate_hist_all, proj |> select(sex, group, year, rate)) |>
   inner_join(age_to_bgroup, by = "group", relationship = "many-to-many") |>

@@ -86,27 +86,69 @@ insured_status <- function(qcs, cohort, ages = 13:84) {
 
 #' OCACT method: simulate one cohort and sex.
 #'
+#' The records represent the work-authorized population (everyone but the
+#' temporary or unlawfully present). Each year, in OCACT's order:
+#'   1. New LPR immigrants: a share `imm_frac` of records is drawn at random to
+#'      stand for that year's net LPR entrants at this age. Their earlier
+#'      earnings are wiped (they had no US work history) and they get 0-4 QCs
+#'      this year with equal chances.
+#'   2. Non-covered workers: (1 - p) x N records are chosen by the SLCT/SRCH
+#'      search, never from this year's immigrants.
+#'   3. Everyone else is a covered worker and draws QCs from the earnings
+#'      distribution.
+#'
 #' @param cohort    Birth year.
-#' @param p         Covered-worker rates at ages 13..84 (NA outside 1937-2100).
+#' @param p         Covered-worker rates of the work-authorized population at
+#'                  ages 13..84 (NA outside 1937-2100).
 #' @param qc_ratio  QC amount / median earnings at ages 13..84.
 #' @param slct,srch SLCT and SRCH at ages 13..84 (integer vectors).
+#' @param imm_frac  New net LPR immigrants as a share of the work-authorized
+#'                  population at ages 13..84 (0 = none).
 #' @param N         Number of records (OCACT uses 30,000).
 simulate_cohort_ocact <- function(cohort, p, qc_ratio, frac_points, low_power,
-                                  slct, srch, N = 30000) {
+                                  slct, srch, imm_frac = 0, N = 30000) {
   ages <- 13:84; A <- length(ages)
   s <- cohort_setup(p, qc_ratio, frac_points, low_power)
+  imm_frac <- rep_len(imm_frac, A)
+  imm_frac[is.na(imm_frac) | imm_frac < 0] <- 0
   qcs <- matrix(0L, N, A)
   zero_run <- integer(N)
   for (j in seq_len(A)) {
-    n_out <- round((1 - s$p[j]) * N)
-    out <- select_noncovered(zero_run, n_out, slct[j], srch[j])
+    # 1. new LPR immigrants
+    n_imm <- min(N, round(imm_frac[j] * N))
+    imm <- if (n_imm > 0) sample.int(N, n_imm) else integer(0)
+    if (n_imm > 0 && j > 1) qcs[imm, 1:(j - 1)] <- 0L
+
+    # 2. non-covered workers, never from this year's immigrants: give them a
+    #    zero-run the search will never prefer
+    run_for_search <- zero_run
+    run_for_search[imm] <- -1e6L
+    n_out <- min(N - n_imm, round((1 - s$p[j]) * N))
+    out <- select_noncovered(run_for_search, n_out, slct[j], srch[j])
+
+    # 3. QCs for covered workers; uniform 0-4 for immigrants
     u <- runif(N)
     q <- (u >= s$thr[j, 1]) + (u >= s$thr[j, 2]) + (u >= s$thr[j, 3]) + (u >= s$thr[j, 4])
     q[out] <- 0L
+    if (n_imm > 0) q[imm] <- sample(0:4, n_imm, replace = TRUE)
     qcs[, j] <- q
     zero_run <- ifelse(q == 0L, zero_run + 1L, 0L)
+    zero_run[imm] <- as.integer(q[imm] == 0L)
   }
   insured_status(qcs, cohort, ages)
+}
+
+#' Combine the work-authorized simulation with the temporary or unlawfully
+#' present population (methodology 3.1.c):
+#'
+#'   insured share of everyone = sim x (L + ALPHA x k x U) / (L + U)
+#'
+#' where L is the work-authorized population, U the temporary or unlawfully
+#' present stock, k their covered-worker rate relative to everyone else's
+#' (OCACT's CW_OTHER / CPRO, as a share of U), and ALPHA = 0.75: covered
+#' workers among them are three-fourths as likely to be insured.
+combine_status <- function(sim_share, L, U, k, alpha = 0.75) {
+  sim_share * (L + alpha * k * U) / (L + U)
 }
 
 #' Latent-attachment method (first version): simulate one cohort and sex.

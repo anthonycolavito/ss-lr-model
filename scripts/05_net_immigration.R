@@ -83,3 +83,139 @@ print(net_immigration |> filter(year == 2050) |>
 
 saveRDS(net_immigration, "data/net_immigration.rds")
 cat("\nSaved data/net_immigration.rds:", nrow(net_immigration), "rows\n")
+
+# ==============================================================================
+# Part 2: immigration by legal status
+#
+# The insured-status simulation needs two things by age, sex and year:
+#   (a) lawful permanent resident (LPR) entrants: people who join the
+#       work-authorized population with no US earnings history
+#   (b) the stock of temporary or unlawfully present immigrants, whom OCACT
+#       excludes from the main simulation and insures at a much lower rate
+#
+# Totals come from the Trustees (TR Table V.A2; 2026 Demographic Assumptions
+# memo, section 3.5 and Table 3.5). Nothing published gives their ages, so both
+# use one age-sex pattern for arrivals: the pattern of total net immigration
+# derived above, averaged over 2030-2050 (when it is positive and stable).
+# ==============================================================================
+
+# ---- Step 3: the arrival age pattern ------------------------------------------
+arrival_pattern <- net_immigration |>
+  filter(year %in% 2030:2050) |>
+  group_by(age, sex) |> summarise(net = mean(net), .groups = "drop") |>
+  mutate(net = pmax(net, 0), share = net / sum(net)) |>
+  select(age, sex, share)
+stopifnot(abs(sum(arrival_pattern$share) - 1) < 1e-9)
+
+# ---- Step 4: LPR entrants -----------------------------------------------------
+# V.A2's net LPR change = new LPR arrivals - legal emigrants + adjustments of
+# status. All three move people into (or out of) the work-authorized group.
+# People adjusting status had lived here as temporary or unlawfully present
+# immigrants, so they may have some covered earnings; OCACT's simulation treats
+# all LPR entrants alike (prior earnings nullified), and so do we.
+lpr_entrants <- va2 |>
+  select(year, lpr_net) |>
+  filter(!is.na(lpr_net)) |>
+  expand_grid(arrival_pattern) |>
+  transmute(year, age, sex, entrants = 1000 * lpr_net * share)
+
+# ---- Step 5: the temporary or unlawfully present stock, by age ----------------
+# Total stock, end of year (millions), from the Trustees:
+#   1963: 0 (OCACT's series starts in 1963)
+#   1990: 2.6  (1990 Census, excluding those later legalized under IRCA, who
+#               became LPRs)
+#   1996: 5.0  (October 1996)
+#   1999: 9.9  (DHS, beginning of 2000; the 2000 Census showed the 1990s had
+#               been underestimated, hence the jump)
+#   2005: 11.7, 2008: 13.5, 2013: 12.5, 2020: 13.4, 2024: 16.9, 2025: 17.3
+# Between anchors the total is interpolated linearly. From 2026 on it follows
+# V.A2's flows exactly: arrivals less departures and adjustments of status,
+# less deaths. The memo's projected totals for 2029 (15.6 million) and 2100
+# (28.7 million) are checks.
+#
+# By age: each year the stock ages one year and loses deaths; arrivals come in
+# with the arrival pattern; exits (departures and adjustments of status) are
+# spread over ages in proportion to stock x exp(-beta x (age - 30)). The memo
+# says OCACT assumes "higher rates of emigration for recent entrants", who are
+# mostly young; beta > 0 tilts exits toward younger ages. With V.A2 fixing the
+# flows, beta governs how many in the stock die, so it is solved to hit the
+# memo's 2100 total. Before 2026, exits are assumed to be 3% of the stock a
+# year and arrivals are whatever hits the anchored total.
+
+anchors <- tibble(year = c(1963, 1990, 1996, 1999, 2005, 2008, 2013, 2020, 2024, 2025),
+                  stock = c(0, 2.6, 5.0, 9.9, 11.7, 13.5, 12.5, 13.4, 16.9, 17.3) * 1e6)
+hist_total <- approx(anchors$year, anchors$stock, xout = 1963:2025)$y
+names(hist_total) <- 1963:2025
+tu_flows <- va2 |> filter(year >= 2026) |>
+  transmute(year, arrivals = 1000 * oth_in, exits = 1000 * (oth_out + oth_aos))
+
+# Work in plain matrices: rows = ages 0..100, columns = M, F.
+ages_all <- 0:100
+share_mat <- matrix(0, 101, 2)
+share_mat[cbind(arrival_pattern$age + 1, as.integer(arrival_pattern$sex))] <- arrival_pattern$share
+q_arr <- array(NA_real_, c(101, 2, length(1900:2100)))       # qx at ages 0..100
+qq <- qx |> filter(age <= 100)
+q_arr[cbind(qq$age + 1, as.integer(qq$sex), qq$year - 1899)] <- qq$qx
+
+project_stock <- function(beta, keep = FALSE) {
+  tilt <- exp(-beta * (ages_all - 30))
+  stock <- matrix(0, 101, 2)
+  out <- if (keep) vector("list", length(1964:2100)) else NULL
+  for (yr in 1964:2100) {
+    q <- q_arr[, , yr - 1899]
+    # survive the year: half the year at last year's age, half at this year's
+    q_prev <- rbind(q[1, ], q[-101, ])
+    s <- 1 - (q_prev + q) / 2
+    aged <- rbind(0, stock[-101, ])                     # age everyone one year
+    aged[101, ] <- aged[101, ] + stock[101, ]           # 100+ stays open-ended
+    aged <- aged * s
+    if (yr <= 2025) {
+      exits <- 0.03 * aged
+      arrivals <- hist_total[as.character(yr)] - sum(aged - exits)
+      if (arrivals < 0) { exits <- exits - arrivals * aged / sum(aged); arrivals <- 0 }
+    } else {
+      f <- tu_flows[tu_flows$year == yr, ]
+      w <- aged * tilt
+      exits <- f$exits * w / sum(w)
+      exits <- pmin(exits, aged)                        # never more than present
+      arrivals <- f$arrivals
+    }
+    stock <- aged - exits + arrivals * share_mat
+    if (keep) out[[yr - 1963]] <- stock
+  }
+  if (keep) out else sum(stock)
+}
+
+# Above about 0.1 the tilt empties the youngest ages and caps bind, so the
+# search stays in the range where the 2100 total falls steadily as beta rises.
+beta <- uniroot(function(b) project_stock(b) - 28.7e6, c(0, 0.05))$root
+cat("\nExit age tilt solved to hit 28.7 million in 2100: beta =", round(beta, 4),
+    "(exit weight at age 20 vs 50:", round(exp(30 * beta), 2), "x)\n")
+stocks <- project_stock(beta, keep = TRUE)
+tu_stock <- bind_rows(lapply(seq_along(stocks), function(i) {
+  m <- stocks[[i]]
+  tibble(year = 1963L + i, age = rep(ages_all, 2),
+         sex = factor(rep(c("M", "F"), each = 101), levels = c("M", "F")),
+         stock = c(m[, 1], m[, 2]))
+}))
+
+tu_total <- tu_stock |> group_by(year) |> summarise(stock = sum(stock) / 1e6)
+cat("\nTemporary or unlawfully present stock (millions), ours vs Trustees:\n")
+checks <- tibble(year = c(2000, 2013, 2025, 2029, 2100), trustees = c(9.9, 12.5, 17.3, 15.6, 28.7))
+print(checks |> left_join(tu_total, by = "year") |> mutate(gap = round(stock - trustees, 2), stock = round(stock, 2)))
+
+# Must stay below the total population at every age.
+share_check <- tu_stock |>
+  inner_join(pop, by = c("year", "age", "sex")) |>
+  mutate(share = stock / pop)
+cat("Largest share of any age-sex group that is temporary or unlawfully present:",
+    round(max(share_check$share, na.rm = TRUE), 3), "\n")
+stopifnot(all(share_check$share < 0.6, na.rm = TRUE))
+cat("Share of population, ages 25-54, selected years:\n")
+print(share_check |> filter(age %in% 25:54, year %in% c(2000, 2025, 2050, 2100)) |>
+        group_by(year) |> summarise(share = round(sum(stock) / sum(pop), 3)))
+
+saveRDS(list(arrival_pattern = arrival_pattern, lpr_entrants = lpr_entrants,
+             tu_stock = tu_stock),
+        "data/immigration_status.rds")
+cat("\nSaved data/immigration_status.rds\n")
