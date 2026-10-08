@@ -105,8 +105,10 @@ insured_status <- function(qcs, cohort, ages = 13:84) {
 #' @param imm_frac  New net LPR immigrants as a share of the work-authorized
 #'                  population at ages 13..84 (0 = none).
 #' @param N         Number of records (OCACT uses 30,000).
+#' @param max_age   Stop simulating after this age (calibration speed-up);
+#'                  later ages are returned as NA.
 simulate_cohort_ocact <- function(cohort, p, qc_ratio, frac_points, low_power,
-                                  slct, srch, imm_frac = 0, N = 30000) {
+                                  slct, srch, imm_frac = 0, N = 30000, max_age = 84) {
   ages <- 13:84; A <- length(ages)
   s <- cohort_setup(p, qc_ratio, frac_points, low_power)
   imm_frac <- rep_len(imm_frac, A)
@@ -114,6 +116,7 @@ simulate_cohort_ocact <- function(cohort, p, qc_ratio, frac_points, low_power,
   qcs <- matrix(0L, N, A)
   zero_run <- integer(N)
   for (j in seq_len(A)) {
+    if (ages[j] > max_age) break
     # 1. new LPR immigrants
     n_imm <- min(N, round(imm_frac[j] * N))
     imm <- if (n_imm > 0) sample.int(N, n_imm) else integer(0)
@@ -135,7 +138,9 @@ simulate_cohort_ocact <- function(cohort, p, qc_ratio, frac_points, low_power,
     zero_run <- ifelse(q == 0L, zero_run + 1L, 0L)
     zero_run[imm] <- as.integer(q[imm] == 0L)
   }
-  insured_status(qcs, cohort, ages)
+  out <- insured_status(qcs, cohort, ages)
+  if (max_age < 84) out[out$age > max_age, c("fully", "disability", "mean_qc", "share_covered")] <- NA
+  out
 }
 
 #' Combine the work-authorized simulation with the temporary or unlawfully
@@ -186,6 +191,25 @@ age_params <- function(slct, srch, slct_mid = max(1, slct - 1), young_srch = 3) 
 grade_female_params <- function(f_params, m_params, p_f, p_m) {
   w <- pmin(1, pmax(0, (p_f / pmax(p_m, 1e-9) - 0.9) / 0.1))
   w[is.na(w)] <- 0
-  list(slct = as.integer(round((1 - w) * f_params$slct + w * m_params$slct)),
+  list(slct = (1 - w) * f_params$slct + w * m_params$slct,
        srch = as.integer(round((1 - w) * f_params$srch + w * m_params$srch)))
+}
+
+#' SLCT and SRCH by age from one SRCH value per 4.C2 age group (ages 18+),
+#' with SLCT fixed. Ages 13-17: SLCT 1, SRCH 3 (teen work is sporadic). Ages
+#' 18-19 take the 20-24 value; ages 75-84 the 75+ value.
+#'
+#' Why SRCH and not SLCT: with SRCH fixed, raising SLCT stops mattering once no
+#' record within SRCH meets it (the search then takes the longest gap found),
+#' so SLCT runs out of range. SRCH spans the whole range: 1 means non-workers
+#' are picked at random (most people insured), a large SRCH means the longest
+#' gaps are always picked (fewest insured).
+group_params <- function(srch_by_group, slct = 4) {
+  ages <- 13:84
+  grp <- cut(ages, c(12, 17, 24, 29, 34, 39, 44, 49, 54, 59, 64, 69, 74, 84),
+             labels = c("teen", "20_24", "25_29", "30_34", "35_39", "40_44", "45_49",
+                        "50_54", "55_59", "60_64", "65_69", "70_74", "75plus"))
+  srch <- ifelse(grp == "teen", 3, srch_by_group[as.character(grp)])
+  list(slct = as.numeric(ifelse(grp == "teen", 1, slct)),
+       srch = as.integer(round(srch)))
 }
