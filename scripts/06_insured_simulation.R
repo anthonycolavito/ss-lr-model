@@ -167,13 +167,28 @@ calibrate <- function(sex, m_params = NULL) {
     })) |>
     unnest(score) |> ungroup() |> mutate(sex = sex)
 }
+# Stage 1 takes several minutes; its result is saved and reused unless the
+# inputs have changed since (delete data/insured_stage1.rds to force a rerun).
+stage1_file <- "data/insured_stage1.rds"
+inputs_newer <- file.exists(stage1_file) &&
+  any(file.mtime(c("data/insured_inputs.rds", "data/immigration_status.rds")) > file.mtime(stage1_file))
 t0 <- Sys.time()
-calib_m <- calibrate("M")
-best_m <- calib_m |> slice_min(rmse_fully, n = 1, with_ties = FALSE)
-m_params <- age_params(best_m$slct, best_m$srch)
-calib_f <- calibrate("F", m_params)
-best_f <- calib_f |> slice_min(rmse_fully, n = 1, with_ties = FALSE)
-f_params <- age_params(best_f$slct, best_f$srch)
+if (file.exists(stage1_file) && !inputs_newer) {
+  st1 <- readRDS(stage1_file); calib_m <- st1$m; calib_f <- st1$f
+  best_m <- calib_m |> slice_min(rmse_fully, n = 1, with_ties = FALSE)
+  m_params <- age_params(best_m$slct, best_m$srch)
+  best_f <- calib_f |> slice_min(rmse_fully, n = 1, with_ties = FALSE)
+  f_params <- age_params(best_f$slct, best_f$srch)
+  cat("Stage 1: reusing", stage1_file, "\n")
+} else {
+  calib_m <- calibrate("M")
+  best_m <- calib_m |> slice_min(rmse_fully, n = 1, with_ties = FALSE)
+  m_params <- age_params(best_m$slct, best_m$srch)
+  calib_f <- calibrate("F", m_params)
+  best_f <- calib_f |> slice_min(rmse_fully, n = 1, with_ties = FALSE)
+  f_params <- age_params(best_f$slct, best_f$srch)
+  saveRDS(list(m = calib_m, f = calib_f), stage1_file)
+}
 cat("Stage 1 took", round(as.numeric(Sys.time() - t0, units = "mins"), 1), "minutes\n")
 cat("\nStage 1 grid (fit to 4.C2 fully insured, ages 25-74, 1990-2025):\n")
 print(bind_rows(calib_m, calib_f) |> select(sex, slct, srch, rmse_fully, bias_fully, rmse_disab) |>
@@ -188,10 +203,11 @@ t0 <- Sys.time()
 stage2 <- expand_grid(sex = c("M", "F"), k = k_grid) |>
   rowwise() |>
   mutate(res = list({
+    sx <- sex
     kk <- setNames(c(k, k), c("M", "F"))
-    sim <- run_cohorts(c(1961:1965, 2036:2040), sex, 30000,
+    sim <- run_cohorts(c(1961:1965, 2036:2040), sx, 30000,
                        m_params = m_params, f_params = f_params, k = k)
-    age62(to_year_age(sim, kk)) |> filter(sex == !!sex) |> select(year, fully, target, gap)
+    age62(to_year_age(sim, kk)) |> filter(.data$sex == sx) |> select(year, fully, target, gap)
   })) |>
   unnest(res) |> ungroup()
 cat("\nStage 2 took", round(as.numeric(Sys.time() - t0, units = "mins"), 1), "minutes\n")
