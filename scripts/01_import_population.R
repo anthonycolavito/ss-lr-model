@@ -1,118 +1,116 @@
 # 01_import_population.R
 #
-# Reads OCACT's Social Security area population (December 31, 1940-2100,
-# 2026 TR intermediate) and saves it as one tidy table:
+# Reads OCACT's Social Security area population (2026 TR intermediate) at two
+# points in each year and saves each as one tidy table:
 #   year | age | sex | marital | pop
+#
+#   December 31 (1940-2100): end-of-year stocks. Beneficiary exposures use these.
+#   July 1      (1941-2100): midyear. Covered-worker rates and awards use these.
 #
 # Every later phase multiplies something by this population, so it comes first.
 #
-# Input:  data-raw/population/SSPopDec_Alt2_TR2026.csv
-# Check:  data-raw/tr2026/SingleYearTRTables_TR2026.xlsx, Table V.A3
-# Output: data/population_dec.rds
+# Input:  data-raw/population/SSPop{Dec,Jul}_Alt2_TR2026.csv
+# Check:  data-raw/tr2026/SingleYearTRTables_TR2026.xlsx, Table V.A3 (July 1)
+# Output: data/population_dec.rds, data/population_jul.rds
 
 library(readr)
 library(dplyr)
 library(tidyr)
+source("R/read_tr.R")
 
-# ---- Step 1: read the raw file ---------------------------------------------
+# ---- Step 1: read a raw file and check it adds up --------------------------
 # One row per year x age (age 100 means 100 and older). Columns are the total,
 # then for each sex: Tot, Sin(gle), Mar(ried), Wid(owed), Div(orced).
-
-raw <- read_csv("data-raw/population/SSPopDec_Alt2_TR2026.csv",
-                show_col_types = FALSE)
-
-stopifnot(
-  min(raw$Year) == 1940, max(raw$Year) == 2100,
-  all(raw$Age %in% 0:100),
-  nrow(raw) == (2100 - 1940 + 1) * 101
-)
-
-# ---- Step 2: check the file adds up ----------------------------------------
 # The total should equal men plus women, and each sex's total should equal the
 # sum of its four marital statuses. If not, a column is mislabeled.
 
-gap_total <- with(raw, Total - `M Tot` - `F Tot`)
-gap_men   <- with(raw, `M Tot` - (`M Sin` + `M Mar` + `M Wid` + `M Div`))
-gap_women <- with(raw, `F Tot` - (`F Sin` + `F Mar` + `F Wid` + `F Div`))
+read_population <- function(path) {
+  raw <- read_csv(path, show_col_types = FALSE)
+  stopifnot(all(raw$Age %in% 0:100),
+            nrow(raw) == length(unique(raw$Year)) * 101)
 
-cat("Largest gap, total vs men + women:      ", max(abs(gap_total)), "\n")
-cat("Largest gap, men vs sum of marital:     ", max(abs(gap_men)), "\n")
-cat("Largest gap, women vs sum of marital:   ", max(abs(gap_women)), "\n")
-stopifnot(max(abs(c(gap_total, gap_men, gap_women))) <= 2)  # allow rounding
+  gaps <- with(raw, c(Total - `M Tot` - `F Tot`,
+                      `M Tot` - (`M Sin` + `M Mar` + `M Wid` + `M Div`),
+                      `F Tot` - (`F Sin` + `F Mar` + `F Wid` + `F Div`)))
+  cat(basename(path), ": years", min(raw$Year), "-", max(raw$Year),
+      "| largest adding-up gap:", max(abs(gaps)), "\n")
+  stopifnot(max(abs(gaps)) <= 2)  # allow rounding
+  raw
+}
 
-# ---- Step 3: reshape to one row per year x age x sex x marital status ------
+# ---- Step 2: reshape to one row per year x age x sex x marital status ------
 # We drop the total columns (they can always be rebuilt by summing) and keep
 # only the eight sex x marital columns.
 
-marital_codes <- c(Sin = "single", Mar = "married", Wid = "widowed", Div = "divorced")
+tidy_population <- function(raw) {
+  marital_codes <- c(Sin = "single", Mar = "married", Wid = "widowed", Div = "divorced")
+  out <- raw |>
+    select(year = Year, age = Age, matches("^[MF] (Sin|Mar|Wid|Div)$")) |>
+    pivot_longer(-c(year, age), names_to = c("sex", "marital"),
+                 names_sep = " ", values_to = "pop") |>
+    mutate(marital = factor(unname(marital_codes[marital]),
+                            levels = c("single", "married", "widowed", "divorced")),
+           sex = factor(sex, levels = c("M", "F"))) |>
+    arrange(year, sex, marital, age)
+  stopifnot(nrow(out) == nrow(raw) * 8,
+            sum(out$pop) == sum(raw$`M Tot` + raw$`F Tot`))
+  out
+}
 
-population <- raw |>
-  select(year = Year, age = Age, matches("^[MF] (Sin|Mar|Wid|Div)$")) |>
-  pivot_longer(-c(year, age), names_to = c("sex", "marital"),
-               names_sep = " ", values_to = "pop") |>
-  mutate(marital = factor(unname(marital_codes[marital]),
-                          levels = c("single", "married", "widowed", "divorced")),
-         sex = factor(sex, levels = c("M", "F"))) |>
-  arrange(year, sex, marital, age)
+population_dec <- tidy_population(read_population("data-raw/population/SSPopDec_Alt2_TR2026.csv"))
+population_jul <- tidy_population(read_population("data-raw/population/SSPopJul_Alt2_TR2026.csv"))
 
-stopifnot(nrow(population) == nrow(raw) * 8,
-          sum(population$pop) == sum(raw$`M Tot` + raw$`F Tot`))
+# ---- Step 3: check July 1 against the Trustees Report (Table V.A3) ---------
+# V.A3 reports July 1 population, in thousands, by broad age group. Our July
+# file is the same concept, so the only differences should be rounding to the
+# nearest thousand.
 
-# ---- Step 4: check against the Trustees Report (Table V.A3) ----------------
-# V.A3 reports July 1 population, in thousands, by broad age group. July 1 of
-# year y sits halfway between December 31 of y-1 and December 31 of y, so the
-# average of those two should land very close to the published figure.
-
-# V.A3 stacks historical, intermediate, low-cost and high-cost blocks; the
-# helper keeps historical + intermediate, one row per year.
-source("R/read_tr.R")
 va3 <- read_tr_single_year("V.A3", c("under20", "age20_64", "age65plus", "total")) |>
   select(-section)
 
-ours_dec <- population |>
+ours <- population_jul |>
   mutate(group = cut(age, c(-1, 19, 64, Inf), labels = c("under20", "age20_64", "age65plus"))) |>
   group_by(year, group) |>
   summarise(pop = sum(pop) / 1000, .groups = "drop") |>
   pivot_wider(names_from = group, values_from = pop) |>
   mutate(total = under20 + age20_64 + age65plus)
 
-ours_jul <- ours_dec |>
-  arrange(year) |>
-  mutate(across(-year, ~ (.x + lag(.x)) / 2)) |>
-  filter(!is.na(total))
+comparison <- inner_join(ours, va3, by = "year", suffix = c("_ours", "_tr")) |>
+  mutate(gap_total = total_ours - total_tr,
+         gap_under20 = under20_ours - under20_tr,
+         gap_20_64 = age20_64_ours - age20_64_tr,
+         gap_65plus = age65plus_ours - age65plus_tr)
 
-comparison <- inner_join(ours_jul, va3, by = "year", suffix = c("_ours", "_tr")) |>
-  mutate(pct_gap_total = 100 * (total_ours / total_tr - 1),
-         pct_gap_65plus = 100 * (age65plus_ours / age65plus_tr - 1))
-
-cat("\nJuly 1 total, our estimate vs V.A3 (selected years):\n")
+cat("\nJuly 1 population (thousands), ours vs V.A3, selected years:\n")
 print(comparison |>
-        filter(year %in% c(1950, 1980, 2000, 2025, 2026, 2050, 2075, 2100)) |>
-        select(year, total_ours, total_tr, pct_gap_total, pct_gap_65plus),
-      n = Inf)
-# The average of two Decembers can't follow a jump inside a year, so a few
-# historical years miss by more than rounding:
-#   1946, 1950, 1956  abrupt changes in early history (demobilization,
-#                     changes in who the SS area population counts)
-#   2011 (65+ only)   the first baby boomers (born 1946) turn 65 mid-year
-# Those are reported, not enforced. The years we project (2025 on) must match
-# to within rounding.
-history <- comparison |> filter(year < 2025)
-projection <- comparison |> filter(year >= 2025)
-
-cat("\nHistorical years with gaps above 0.1% (total) or 0.3% (65+):\n")
-print(history |>
-        filter(abs(pct_gap_total) > 0.1 | abs(pct_gap_65plus) > 0.3) |>
-        select(year, total_ours, total_tr, pct_gap_total, pct_gap_65plus),
+        filter(year %in% c(1950, 1980, 2000, 2025, 2050, 2075, 2100)) |>
+        select(year, total_ours, total_tr, gap_total, gap_65plus) |>
+        mutate(across(where(is.double), ~ round(.x, 1))),
       n = Inf)
 
-cat("\nProjection years (2025-2100), largest gap:\n")
-cat("  total: ", round(max(abs(projection$pct_gap_total)), 3), "%\n")
-cat("  65+:   ", round(max(abs(projection$pct_gap_65plus)), 3), "%\n")
-stopifnot(max(abs(projection$pct_gap_total)) < 0.05,
-          max(abs(projection$pct_gap_65plus)) < 0.25)
+largest <- max(abs(unlist(comparison[c("gap_total", "gap_under20", "gap_20_64", "gap_65plus")])))
+cat("\nLargest gap in any year and age group:", round(largest, 2), "thousand people\n")
+stopifnot(largest <= 2)  # V.A3 is rounded to the nearest thousand
+
+# ---- Step 4: the two files should agree with each other --------------------
+# July 1 of year y sits between December 31 of y-1 and y. The average of those
+# two Decembers is only an approximation (a cohort-size jump mid-year breaks
+# it), but across all ages it should be very close.
+
+dec_total <- population_dec |> group_by(year) |> summarise(dec = sum(pop))
+jul_total <- population_jul |> group_by(year) |> summarise(jul = sum(pop))
+consistency <- jul_total |>
+  inner_join(dec_total |> mutate(year = year + 1, prev = dec) |> select(year, prev), by = "year") |>
+  inner_join(dec_total, by = "year") |>
+  mutate(pct_gap = 100 * ((prev + dec) / 2 / jul - 1)) |>
+  filter(year >= 2025)
+cat("Projection years: average of Decembers vs July, largest gap:",
+    round(max(abs(consistency$pct_gap)), 3), "%\n")
+stopifnot(max(abs(consistency$pct_gap)) < 0.05)
 
 # ---- Save ------------------------------------------------------------------
 dir.create("data", showWarnings = FALSE)
-saveRDS(population, "data/population_dec.rds")
-cat("\nSaved data/population_dec.rds:", nrow(population), "rows\n")
+saveRDS(population_dec, "data/population_dec.rds")
+saveRDS(population_jul, "data/population_jul.rds")
+cat("\nSaved data/population_dec.rds:", nrow(population_dec), "rows\n")
+cat("Saved data/population_jul.rds:", nrow(population_jul), "rows\n")
