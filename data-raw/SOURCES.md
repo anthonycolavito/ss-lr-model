@@ -15,5 +15,9 @@ Every file in `data-raw/` is listed here with where it came from and when. Files
 ## Still to add
 
 - `mortality/`: historical death probabilities before 2024, if a phase needs them
-- Actuarial Study No. 130 (DI experience, July 2026) into `docs/reference/`
+- `supplement/`: 2026 Annual Statistical Supplement tables as released (December 2025 data)
 - `as121/`: tables extracted from Actuarial Study No. 121
+
+## Program parameters
+
+Historical and projected program rules (AWI, COLAs, taxable maximum, bend points, QC amounts, NRA, reduction and delayed-credit factors) come from the ranypia package's `current_law()` policy object, built from the 2026 TR. They are not duplicated in `params/`.
