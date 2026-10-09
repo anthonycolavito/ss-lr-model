@@ -81,7 +81,7 @@ Status: **Adopted** (in use), **Provisional** (in use, to revisit), **Superseded
 | v1 | Latent attachment, assumed teen ramp, no immigrants | men 1.3, women 2.2 | men +2.9, women +3.7 |
 | v2 | v1 with Study 127 teen shape | men 1.3, women 2.2 | men +1.8, women +2.5 |
 | v3 | OCACT SLCT/SRCH, one value for ages 25+, immigrants | men 3.0, women 4.1 (too low at 25–34, too high at 65–74) | men +3.4, women +1.0 (k at its floor, 0) |
-| v4 | OCACT, SRCH by age group and sex, smoothed single-age inputs | First attempt hit bounds (F-01, F-03); rerunning with the F-03 fix | — |
+| v4 | OCACT, SRCH by age group and sex, smoothed single-age inputs, F-03 fix; k men ⅔, women 0 | Fully insured RMSE 1990–2025, ages 20–74: men 1.8, women 3.1 points (v3: 3.0, 4.1, but v3 had the F-03 bug). Most groups still at SRCH bounds | Age 62 vs TR: men −0.9 (2025), −0.1 (2100); women −4.6, −3.0. Disability insured at 50: 76.8% / 77.2% (TR 75.9 / 77.4), before DINADD |
 
 ## Findings
 
