@@ -153,7 +153,7 @@ print(as.data.frame(parts |> group_by(sex, ak, part) |> summarise(beta = weighte
 # retired workers including conversions). 6.A4's awards are already at December rates (its note a), so
 # no COLA is divided out; the projection applies award (at award-time rates, scripts/22) x (1 + COLA) x k0:
 # the step from award amounts to December current pay, on the actual mix (both include conversions).
-# The DI equivalent (5.D1 / 6.A4) is 1.022 men, 1.016 women, scripts/25's k0.
+# The DI equivalent (5.D1 / 6.A4) is 1.050 men, 1.044 women, against scripts/25's k0 of 1.047 (F-36).
 a4 <- as.matrix(readxl::read_excel("data-raw/supplement/2026/6a.xlsx", sheet = "6.A4", col_names = FALSE, col_types = "text", .name_repair = "minimal"))
 i4 <- grep("^Total", trimws(a4[, 4]))[1]      # retired workers (the DI total follows)
 k0 <- tibble(sex = c("M", "F"), award = num(a4[i4, c(8, 10)])) |> left_join(b4 |> filter(yk == 2025) |> select(sex, dec = mba), by = "sex") |>
