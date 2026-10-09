@@ -28,7 +28,9 @@ The one rule: anything in `data/` or `outputs/` can be rebuilt from `data-raw/` 
 
 ## Status
 
-Phase 0 (data and parameters) is done. Run in order:
+Phases 0–3 are done: inputs, insured status, disabled workers and their dependents, and every OASI beneficiary category, 2025–2100. Next is Phase 4, new-award benefit levels (see `CLAUDE.md` for where to start).
+
+Rebuild everything with `Rscript scripts/run_all.R` (about an hour on 2 cores; logs in `outputs/logs/`; `Rscript scripts/run_all.R 11` resumes from step 11). The scripts, in order:
 
 | Script | Builds | Checked against |
 | --- | --- | --- |
@@ -38,7 +40,7 @@ Phase 0 (data and parameters) is done. Run in order:
 | `04_insured_inputs.R` | Covered-worker rates (Study 127 age paths after 2023), median earnings, QC amounts, earnings distribution, by age, sex, year | Total covered workers = TR IV.B4; men-women change in age-adjusted rates = TR |
 | `05_net_immigration.R` | Net immigration by age 1–99, sex, year (births excluded); LPR entrants; temporary or unlawfully present population by age | Totals within 1–2% of TR V.A2; population hits the Trustees' 2025 and 2100 totals, 2029 within 0.1 million |
 | `06_insured_simulation.R` | Fully and disability insured rates by age, sex, year, 1970–2100, OCACT's SLCT/SRCH method with immigrants (uses all cores; about 30 minutes on 2) | Supplement 4.C2 history; TR fully insured at age 62 in 2025 and 2100 |
-| `07_insured_calibrate.R` | Scales 06's rates to Supplement 4.C2 (2013–2022) and the TR's 2025 and 2100 figures; adds back disabled workers on the rolls 4+ years (DINADD); reports every factor. Needs 08–10: run 07 → 10 → 07 → 10 | TR fully insured at 62 and disability insured at 50, 2025 and 2100, exactly |
+| `07_insured_calibrate.R` | Scales 06's rates to Supplement 4.C2 (2013–2022) and the TR's 2025 and 2100 figures; adds back disabled workers on the rolls 4+ years (DINADD); reports every factor. Needs 08–10: on a fresh build 07 first runs without DINADD, then 09 → 10 → 07 → 09 → 10 (`run_all.R` does this) | TR fully insured at 62 and disability insured at 50, 2025 and 2100, exactly |
 | `08_di_inputs.R` | Disabled-worker inputs: Study 130 death and recovery tables and 2001–24 history, Actuarial Note 2026.6, Supplement 2026 stock and awards, TR V.C5 | Study 130 worked example; note's Table A probabilities; December 2025 stock vs V.C5 |
 | `09_di_start_stock.R` | Disabled workers at December 2025 by sex, entitlement age and duration: prior from past awards and Study 130 survival, raked to Supplement 5.A1.2 and 5.D1; IBNR factors from two 5.D1 vintages | Both margins matched exactly; survival model reproduces mature cohorts within 1–2% |
 | `10_di_projection.R` | Disabled workers 2026–2100 by sex, entitlement age, duration and age; entitled and current pay (IBNR); incidence, deaths, recoveries, conversions | TR V.C5 2026–2035 exactly, 2036–2100 within ±2%; memo death (26.3 → 12.5) and recovery (18.7 → 11.1) rates; V.C5 gross prevalence |
@@ -48,4 +50,10 @@ Phase 0 (data and parameters) is done. Run in order:
 | `14_rw_entitlement_age.R` | Retired workers by attained age × age at entitlement (and converted DI), 2025–2100 | December 2025 total = Supplement 5.A1.1; 2026 entitlements vs 2025 actuals (6.B5.1) |
 | `15_oasi_auxiliaries.R` | Dependents of retired and deceased workers by category, 2025–2100: TR V.C4 totals split by OCACT-structured linkages | December 2025 Supplement counts by category; model alone vs V.C4 (F-16) |
 
-Phase 1 (insured status) is being revised to follow OCACT's method more closely; the disability-rolls adjustment waits for Phase 2. Next: Phase 2, disabled workers. Planning and the full checklist live in the build guide (Claude doc).
+## Setup
+
+R 4.x with `dplyr`, `tidyr`, `readr`, `readxl`, `Rcpp` (with a C++ compiler, for `src/insured_select.cpp`) and `ranypia` (`remotes::install_github("anthonycolavito/ranypia")`), plus `pdftotext` from poppler-utils (reads the PDF tables).
+
+## Planning
+
+The full checklist, the gaps-and-substitutes table and the parameters lifted from the methodology document live in the build guide (a Claude doc): https://claude.ai/code/artifact/c2f3da56-f2c1-4309-b785-0651b799e80a. `docs/DECISIONS.md` is the record of every choice; the guide tracks the plan.
