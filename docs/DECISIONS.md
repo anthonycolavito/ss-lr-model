@@ -204,7 +204,7 @@ Status: **Adopted** (in use), **Provisional** (in use, to revisit), **Superseded
 | PS-04 | Not yet done: OCACT's adjustments of the careers to projected average taxable earnings by age and sex and to projected covered-worker rates (4.2.1). PAPs therefore move after 2025 only through shuttling; women's earnings stay at their 2025 position relative to men's | Needs CWHS-like average taxable earnings by age and sex; Supplement 4.B has history | — | Done in scripts/21 (PE-02 to PE-05) |
 | AL-01 | Award PIA = Σ factor × interval length (1979 dollars × BP1 of the eligibility year / $180) × PAP, then COLAs from the eligibility year through December of the year before the award; retired eligibility = award year − (age − 62); MBA = PIA × reduction or delayed credits at that exact age for the cohort's NRA | Methodology 4.3.c | — | Adopted |
 | AL-02 | Disabled workers: PAPs held at the 2025 base (scripts/18), eligibility year = award year − 1, PIA × (1 − 0.93%) adjudication-level adjustment (TF Ops p. 53) | OCACT doesn't shuttle DI | — | Adopted |
-| AL-03 | Award tables are by exact age at entitlement (BEPUF); scripts/14's counts are by December age, about half a year later (EA-03). The two are matched in Phase 5 | — | — | Pending (Phase 5) |
+| AL-03 | Award tables are by exact age at entitlement (BEPUF); scripts/14's counts are by December age, about half a year later (EA-03). The two are matched in Phase 5 | — | — | Done (RB-02, RB-03) |
 
 ## Phase 4: careers moved to future cohorts (scripts/20, 21)
 

@@ -111,12 +111,8 @@ Built (scripts 17-22; DECISIONS.md PB-, PP-, PS-, PE-, AL-):
 
 Open in Phase 4: OCACT's dispersion adjustment and two smaller rules (PE-05).
 
-Carry into Phase 5:
+Still open:
 
-- scripts/10 doesn't yet save new DI entitlements by age at entitlement and sex
-  for each year, or the full entitlement age × duration state by year; Phase 4
-  (DI award PIAs) and Phase 5 (DI benefits by duration, workers' compensation
-  offset) need them. Add them to its saved output.
 - F-16: the spouse claiming-age response is weakly tested; revisit for NRA
   reforms once benefit levels exist.
 - D-04: ranypia's 1999 COLA is 2.4% (TR 2.5%); flagged for a ranypia fix.
