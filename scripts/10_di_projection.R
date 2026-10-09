@@ -258,8 +258,9 @@ run_projection <- function(dfac, rfac25, rfac_ult, g, ipost = 1, years = 2026:21
     state <- res$state; ifac[as.character(t)] <- x
     flows[[length(flows) + 1]] <- res$flows
     age_out[[length(age_out) + 1]] <- res$age_flows |> mutate(year = t)
-    stock_out[[length(stock_out) + 1]] <- state |> group_by(sex, a) |>
-      summarise(n_d4 = sum(n[d >= 4]), n = sum(n), .groups = "drop") |> mutate(year = t)
+    ib <- ibnr_year(t)[cbind(match(state$sex, sexes), pmin(state$d, 120) + 1)]
+    stock_out[[length(stock_out) + 1]] <- state |> mutate(cp = n * ib) |> group_by(sex, a) |>
+      summarise(n_d4 = sum(n[d >= 4]), cp = sum(cp), n = sum(n), .groups = "drop") |> mutate(year = t)
   }
   af <- bind_rows(age_out)
   list(flows = bind_rows(flows), stock_age = bind_rows(stock_out), age_flows = af,
