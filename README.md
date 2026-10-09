@@ -56,6 +56,7 @@ Rebuild everything with `Rscript scripts/run_all.R` (about 25 minutes on 2 cores
 | `20_ate_by_age.R` | Average taxable earnings by age and sex relative to the AWI, 1951–2100 (Supplement 4.B13 2012–2023, 4.B2/4.B6 before, held after) | 4.B13 totals |
 | `21_paps_projection.R` | PAPs moved to each year's cohort: earnings levels by age and sex and covered-worker rates (OCACT 4.2.1) | — (F-23) |
 | `22_award_levels.R` | Average award PIA and MBA by year, sex and age at entitlement, retired and disabled workers | 2025 averages vs 6.A4 |
+| `23_lump_sum.R` | Lump-sum death payments, 2024–2100 (equation 3.3.13) | Supplement 6.D9 (2024 fitted, 2025 +7.6%) |
 
 ## Setup
 

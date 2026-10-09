@@ -40,7 +40,8 @@ steps <- c(
   "19" = "19_paps_shuttle.R",
   "20" = "20_ate_by_age.R",
   "21" = "21_paps_projection.R",
-  "22" = "22_award_levels.R"
+  "22" = "22_award_levels.R",
+  "23" = "23_lump_sum.R"
 )
 
 args <- commandArgs(trailingOnly = TRUE)

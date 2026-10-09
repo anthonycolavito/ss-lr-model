@@ -107,8 +107,9 @@ Built (scripts 17-22; DECISIONS.md PB-, PP-, PS-, PE-, AL-):
   PE-04); award PIA/MBA by year (22). Men's award PIAs relative to the AWI fall
   about 7%, women's rise 1-2% (F-23).
 
-Open in Phase 4: OCACT's dispersion adjustment and two smaller rules (PE-05);
-lump-sum death payments.
+- Lump-sum death payments (23).
+
+Open in Phase 4: OCACT's dispersion adjustment and two smaller rules (PE-05).
 
 Carry into Phase 5:
 
@@ -118,8 +119,6 @@ Carry into Phase 5:
   for each year, or the full entitlement age × duration state by year; Phase 4
   (DI award PIAs) and Phase 5 (DI benefits by duration, workers' compensation
   offset) need them. Add them to its saved output.
-- Lump-sum death payments ($255) were moved to Phase 4/5 from Phase 3: count of deaths
-  of insured workers with an eligible survivor × $255.
 - F-16: the spouse claiming-age response is weakly tested; revisit for NRA
   reforms once benefit levels exist.
 - D-04: ranypia's 1999 COLA is 2.4% (TR 2.5%); flagged for a ranypia fix.
