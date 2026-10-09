@@ -16,19 +16,17 @@ A long-range Social Security (OASDI) projection model in R, built to follow the 
 | --- | --- |
 | `data-raw/` | Source files exactly as downloaded. Never edited by hand. Each source is logged in `data-raw/SOURCES.md`. |
 | `data/` | Clean tables produced from `data-raw/` by scripts. |
-| `params/` | Program rules as small CSVs: bend points, QC amounts, NRA schedule, reduction factors. |
 | `R/` | Reusable functions. |
 | `scripts/` | The pipeline, numbered in run order (`01_...R`, `02_...R`). |
 | `outputs/` | Projection results and comparisons against the TR. |
-| `tests/` | Checks that results still match published numbers. |
 | `docs/reference/` | Methodology documents. |
 | `docs/DECISIONS.md` | Every modeling choice, with the reason, the alternatives, and its status. Read this before changing a method. |
 
-The one rule: anything in `data/` or `outputs/` can be rebuilt from `data-raw/` and `params/` by running `scripts/` in order.
+The one rule: anything in `data/` or `outputs/` can be rebuilt from `data-raw/` by running `scripts/` in order (program rules come from the ranypia package, P-06).
 
 ## Status
 
-Phases 0–3 are done: inputs, insured status, disabled workers and their dependents, and every OASI beneficiary category, 2025–2100. Phase 4 (new-award benefit levels) is built through award PIAs and MBAs (scripts 17–20); careers are moved to future cohorts' earnings levels and covered-worker rates (scripts 20–21); OCACT's dispersion adjustment is still open (PE-05). Scripts 17–19 and 21–22 need the BEPUF 2020 files in `data-raw/bepuf/` (not in git; see `data-raw/SOURCES.md`).
+Phases 0–6 are built (October 9, 2026): inputs, insured status, every beneficiary category, new-award benefit levels, benefits in current pay, annual benefits, and trust fund operations with the summary measures. The 75-year actuarial balance is −4.41% of payroll against the Trustees' −4.42% (F-33), with nothing fitted to cost or income. A comprehensive review (F-34) lists bugs to fix before Phase 7 (reforms). Scripts 17–19, 21–22 and 24–30 need the BEPUF 2020 files in `data-raw/bepuf/` (not in git; see `data-raw/SOURCES.md`).
 
 Rebuild everything with `Rscript scripts/run_all.R` (about 25 minutes on 2 cores; logs in `outputs/logs/`; `Rscript scripts/run_all.R 11` resumes from step 11). The scripts, in order:
 
@@ -58,7 +56,7 @@ Rebuild everything with `Rscript scripts/run_all.R` (about 25 minutes on 2 cores
 | `22_award_levels.R` | Average award PIA and MBA by year, sex and age at entitlement, retired and disabled workers | 2025 averages vs 6.A4 |
 | `23_lump_sum.R` | Lump-sum death payments, 2024–2100 (equation 3.3.13) | Supplement 6.D9 (2024 fitted, 2025 +7.6%) |
 | `24_post_entitlement.R` | Post-entitlement factors by sex and duration (retired, disabled, conversions), initial to ultimate 2026–2045 | Supplement 5.B4 and 5.D1 by edition, OCACT's window 2014–15 to 2023–24 |
-| `25_di_benefits.R` | Disabled-worker benefits in current pay by cohort, December 2025–2100; conversion benefits | Supplement 5.D1 and 5.A1.2 (December 2025, exact); DI cost-rate trend vs IV.B1 +5% by 2035 (F-27) |
+| `25_di_benefits.R` | Disabled-worker benefits in current pay by cohort, December 2025–2100; conversion benefits | Supplement 5.D1 and 5.A1.2 (December 2025, exact); DI benefits vs the TR in F-31 |
 | `26_rw_benefits.R` | Retired-worker benefits and PIAs in current pay (age × age at entitlement, conversions), December 2025–2100, net of the dual-entitlement excess | Supplement 5.A1.1 and 5.A3a by age (December 2025, exact with the excess); average PIA vs 5.B7 within 0.9% (check); 5.B4 by entitlement year within −4.4% to +3.6% (check) |
 | `27_aux_benefits.R` | Dependents' and survivors' average benefits (linkage × account holder's average PIA or DI benefit), 30 categories | Supplement 5.A1, 5.A1.3, 5.A1.5–5.A1.7 (December 2025, by construction) |
 | `28_dual_entitlement.R` | Dually entitled counts and excess amounts (OCACT's regressions) | Supplement 5.G2, 5.G3, 5.A14, 5.A15 (2025, by construction) |

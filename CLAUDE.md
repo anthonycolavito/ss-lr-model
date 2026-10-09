@@ -56,9 +56,10 @@ on a different core count differs slightly from the figures in DECISIONS.md;
 everything calibrated to a published target still hits it exactly. A rebuild moved the model-only shares of OASI dependents by
 up to 1.5%.
 
-## Where things stand (October 8, 2026)
+## Where things stand (October 9, 2026)
 
-Phases 0–3 are done (scripts 01–15). Every beneficiary category is projected
+Phases 0–6 are built (scripts 01–30); Phase 7 (reforms) is next, after the fix
+list from the comprehensive review (DECISIONS.md F-34). Phases 0–3 (scripts 01–15): Every beneficiary category is projected
 2025–2100 and matches TR V.C4 and V.C5: disabled workers 2026–2035 exactly and
 within ±2% after; retired workers out of sample within −1.0% to +2.4%
 (short-range factor on ages 65+, RW-11);
@@ -94,7 +95,7 @@ Built (scripts 17-22; DECISIONS.md PB-, PP-, PS-, PE-, AL-):
   2016-2020 (Anthony's choice, PB-01). The two files are too big for git; a new
   container needs them re-sent into `data-raw/bepuf/` (`data-raw/SOURCES.md`;
   `data-raw/bepuf/extract_bepuf_earnings.R` rebuilds the earnings extract from
-  SSA's zip). `run_all.R` skips 17-19 and 21-22 without them. Never use BEPUF's AIME/PIA
+  SSA's zip). `run_all.R` skips 17-19, 21-22 and 24-30 without them. Never use BEPUF's AIME/PIA
   columns (withdrawn by SSA; Anthony found the error).
 - AIMEs with ranypia (17); conversions separated from FRA claims and DI PAPs (18);
   retired PAPs with OCACT's shuttling, the 2025 base calibrated to Supplement
@@ -121,8 +122,7 @@ Phase 5 started: post-entitlement factors (24; DECISIONS.md PF-01 to PF-04,
 F-25, F-26). Retired from Supplement 5.B4 editions 2014-2026, DI from 5.D1 editions
 2012-2026, both over OCACT's window 2014-15 to 2023-24. DI benefits in current
 pay (25; DB-01 to DB-06): carried by cohort, started from 5.D1 and 5.A1.2, no
-separate workers' compensation offset (DB-04). Open: F-27 (DI cost trend +5%
-vs the TR by 2035; check once dependents and annualizing are in). Retired-worker
+separate workers' compensation offset (DB-04). Retired-worker
 benefits (26; RB-01 to RB-06): OCACT's age x entitlement-age matrix, started from
 5.A3a and 5.A1.1 by age and reduction status, reduced shares fitted (RB-06, F-28);
 5.B4 as a check. EA-03/AL-03 handled (RB-02, RB-03).
@@ -145,7 +145,8 @@ the Trustees' −4.42%; OASI 2032 and OASDI 2034 depletion as the TR (F-33). The
 75-year match partly reflects offsetting OASI/DI benefit gaps (F-31). Next:
 Anthony's P-11 revisit, then Phase 7 (reforms; the earnings test in ranypia then).
 
-After Phase 4: Phase 5 (benefits in current pay: starting PIA/MBA matrices,
-roll-forward with COLAs and post-entitlement factors, workers' compensation
-offset, auxiliary averages, dual entitlement, annualizing), Phase 6 (trust fund
-operations and summary measures, checked against IV.B1), Phase 7 (reforms).
+Before Phase 7: fix F-34's list (computation years, December-rate award tables,
+the DI 65-66 history split and conversions in 13, the age-66 claim split in
+19/22, 21's random draws, the insured-simulation bugs), then rebuild from 06
+with run_all.R (Phases 4-6 haven't yet run end to end through run_all.R).
+Then Phase 7 (reforms; ranypia's earnings test).
