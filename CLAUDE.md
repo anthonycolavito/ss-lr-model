@@ -53,15 +53,15 @@ workers 2026–2035, V.C4 retired workers 2026–2035, all V.C4/V.C5 levels). Se
 `Rcpp` with a compiler, `dplyr`, `tidyr`, `readr`, `readxl`, and `pdftotext`.
 The insured simulation is random (L'Ecuyer streams over all cores), so a rebuild
 on a different core count differs slightly from the figures in DECISIONS.md;
-everything calibrated to a published target still hits it exactly. The fresh rebuild moved
-retired workers' 2036–2099 out-of-sample range against V.C4 from −0.8%/+2.4% to
-−1.1%/+2.0%, and the model-only shares of OASI dependents by up to 1.5%.
+everything calibrated to a published target still hits it exactly. A rebuild moved the model-only shares of OASI dependents by
+up to 1.5%.
 
 ## Where things stand (October 8, 2026)
 
 Phases 0–3 are done (scripts 01–15). Every beneficiary category is projected
 2025–2100 and matches TR V.C4 and V.C5: disabled workers 2026–2035 exactly and
-within ±2% after; retired workers out of sample within −0.6% to +2.4%;
+within ±2% after; retired workers out of sample within −1.0% to +2.4%
+(short-range factor on ages 65+, RW-11);
 widow(er)s and all dependents at V.C4/V.C5 levels, split by OCACT-structured
 linkages (model-alone gaps in F-13, F-15, F-16).
 

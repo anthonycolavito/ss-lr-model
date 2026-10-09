@@ -22,9 +22,11 @@
 #   70         grades linearly from 2025's actual to 0.995 over 20 years.
 #   71+        each cohort keeps its age-70 value (cohorts past 70 in 2025 keep
 #              their 2025 value).
-#   2026-2035  one factor per year on prevalence at 65-69 so the total matches
-#              TR V.C4 (OCACT's short-range adjustment, SRADJ); the 2035 factor
-#              is held after (RW-07). 2036-2100 is then out of sample.
+#   2026-2035  one factor per year on prevalence at 65 and over so the total
+#              matches TR V.C4 (OCACT's short-range adjustment, SRADJ, which
+#              OCACT applies to 62-64 and 65-69 by sex; we have only totals,
+#              RW-11); the 2035 factor is held after. 2036-2100 is then out of
+#              sample.
 #
 # Input:  scripts 01-03, 07, 08, 10, 12 outputs; Supplement 5.A1.1 and 5.A1.6
 #         vintages; Study 127; 6.F1, 6.F2; Study 130 Table 5
@@ -235,8 +237,7 @@ proj_prev <- function(sradj) {
   p62p <- p62_proj |> transmute(year, sex, age = 62L, p = p62)
   p70 <- expand_grid(year = 2026:2100, sex = sexes) |> inner_join(p70_25, by = "sex") |>
     transmute(year, sex, age = 70L, p = 0.995 - (0.995 - p70_25) * pmax(0, (2026 + 19 - year) / 20))
-  young <- bind_rows(p62p, p6369, p70) |> left_join(sradj, by = "year") |>
-    mutate(p = ifelse(age >= sr_lo & age <= sr_hi, pmin(0.995, p * coalesce(f, 1)), p)) |> select(-f)
+  young <- bind_rows(p62p, p6369, p70)
   # 71+: cohort keeps its age-70 value; cohorts past 70 in 2025 keep their 2025 value
   c70 <- bind_rows(hist |> filter(age == 70) |> transmute(b = year - 70L, sex, p70 = prev),
                    young |> filter(age == 70) |> transmute(b = year - 70L, sex, p70 = p))
@@ -247,7 +248,13 @@ proj_prev <- function(sradj) {
   # Where exposure is near zero (the oldest ages) historical prevalence isn't
   # usable: fall back to 0.995, and cap at 1.2 (values a little above 1 absorb
   # small understatements of insured rates at old ages) (RW-08).
-  bind_rows(young, old) |> mutate(p = ifelse(is.finite(p) & p >= 0, pmin(p, 1.2), 0.995))
+  # Short-range factor (RW-11): applied in each year to prevalence at ages sr_lo
+  # and over, after the age-70 and 71+ rules, so it moves the level without
+  # changing the age pattern. Capped at 0.995 below 70 and 1.2 at 70+.
+  bind_rows(young, old) |> mutate(p = ifelse(is.finite(p) & p >= 0, pmin(p, 1.2), 0.995)) |>
+    left_join(sradj, by = "year") |>
+    mutate(p = ifelse(age >= sr_lo & age <= sr_hi, pmin(ifelse(age < 70, 0.995, 1.2), p * coalesce(f, 1)), p)) |>
+    select(-f)
 }
 project <- function(sradj) {
   pp <- proj_prev(sradj)
@@ -256,9 +263,9 @@ project <- function(sradj) {
 }
 
 sr_lo <- as.integer(Sys.getenv("SR_LO", "65"))
-sr_hi <- as.integer(Sys.getenv("SR_HI", "69"))   # lowest age the short-range factor applies to (RW-07)
-# SRADJ: one factor per year 2026-2035 on prevalence at 65-69 so the total
-# matches V.C4; the 2035 factor is held after (RW-07).
+sr_hi <- as.integer(Sys.getenv("SR_HI", "100"))  # ages the short-range factor applies to (RW-11)
+# SRADJ: one factor per year 2026-2035 on prevalence at 65 and over so the
+# total matches V.C4; the 2035 factor is held after (RW-11).
 sr <- tibble(year = 2026:2100, f = 1)
 tot_at <- function(sr, y) project(sr) |> filter(year == y) |> summarise(t = sum(rw)) |> pull(t)
 for (y in 2026:2035) {
