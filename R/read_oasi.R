@@ -128,3 +128,26 @@ read_supp_widow_marital <- function(path, sheet = "5.A1.6") {
   rbind(data.frame(year = yr, marital = d[[2]][r], sex = "M", number = as.numeric(d[[7]][r])),
         data.frame(year = yr, marital = d[[2]][r], sex = "F", number = as.numeric(d[[9]][r])))
 }
+
+#' Table 6.B5.1: retired-worker entitlements by year of entitlement
+#' (1998-2025), sex, and age at entitlement. Returns year, sex, total
+#' (thousands, including disability conversions) and percent by age class:
+#' a62, a63, a64, a65 (before/at/after FRA summed), a66 (summed), conv
+#' (disability conversions), a67_69, a70p.
+read_supp_6b51 <- function(path = supp26("6b.xlsx")) {
+  d <- read_text_sheet(path, "6.B5.1")
+  sec <- NA; out <- list()
+  num <- function(x) { v <- suppressWarnings(as.numeric(x)); ifelse(is.na(v), 0, v) }
+  for (i in seq_len(nrow(d))) {
+    if (!is.na(d[[3]][i]) && d[[3]][i] %in% c("Men", "Women")) { sec <- d[[3]][i]; next }
+    if (is.na(sec) || is.na(d[[1]][i]) || !grepl("^[0-9]{4}$", d[[1]][i])) next
+    r <- d[i, ]
+    out[[length(out) + 1]] <- data.frame(
+      year = as.integer(r[[1]]), sex = ifelse(sec == "Men", "M", "F"), total = num(r[[3]]),
+      a62 = num(r[[6]]), a63 = num(r[[7]]), a64 = num(r[[8]]),
+      a65 = num(r[[9]]) + num(r[[10]]) + num(r[[11]]),
+      a66 = num(r[[12]]) + num(r[[13]]) + num(r[[14]]),
+      conv = num(r[[15]]), a67_69 = num(r[[16]]), a70p = num(r[[17]]))
+  }
+  do.call(rbind, out)
+}

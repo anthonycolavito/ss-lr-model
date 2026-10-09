@@ -154,6 +154,15 @@ Status: **Adopted** (in use), **Provisional** (in use, to revisit), **Superseded
 | RW-09 | Age 70 grades to 0.995 over 20 years; 71+ keep their cohort's age-70 value (cohorts past 70 in 2025 keep their 2025 value) | Methodology | — | Adopted |
 | RW-10 | Age-66 adjustment for NRA-67 cohorts: the 1960 cohort's 65→66 increase set to the 1943 cohort's 64→65 increase (December 2007 → 2008: men +0.039, women +0.049); the resulting factor (men 0.86, women 0.88) applies to cohorts 1960+ | Methodology 3.3.c (1958–1959 are history here) | — | Adopted |
 
+## Phase 3: retired workers by age at entitlement (scripts/14)
+
+| ID | Choice | Reason | Alternatives considered | Status |
+| --- | --- | --- | --- | --- |
+| EA-01 | Retired workers at each attained age split by their cohort's entitlement-age weights (ages 62–70), as in methodology 3.3.c; converted DI a separate class | OCACT's method; its December 2025 MBR count by attained × entitlement age isn't published | — | Adopted |
+| EA-02 | Cohort weights: entitlements through 2025 from Supplement 6.B5.1 (retired-worker entitlements by year and age at entitlement, 1998–2025, conversions excluded; 67–69 split by our prevalence increments); years before 1998 take 1998's age mix; from 2026 OCACT's incidence, max(0, p(b,a) − p(b,a−1)) × exposure | Actual entitlements where published | Prevalence increments throughout | Adopted |
+| EA-03 | Age convention: 6.B5.1 uses exact age at entitlement; OCACT's incidence uses the rise in prevalence by December age, about half a year later (model 2026: 18–19% at 62 vs 25–27% in 2025 actuals). Phase 4 computes reductions and credits at December age − ½ year | Keep OCACT's projection method; correct the timing in benefits | — | Adopted (applies in Phase 4) |
+| EA-04 | Check: model new entitlements 2026 = 3.20M vs 3.18M actual in 2025 (excluding conversions); December 2025 split totals 53,624,664 = 5.A1.1. Age mix shifts from 66 to 67–69 in 2026 as the NRA reaches 67 | — | — | — |
+
 ## Versions of the insured simulation
 
 | Version | Description | Fully insured vs 4.C2, 1990–2025 (RMSE, points) | Age 62 vs TR, 2100 (points) |
