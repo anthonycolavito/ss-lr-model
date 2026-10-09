@@ -31,8 +31,10 @@
 #               (the note's convention) and split evenly between entitlement
 #               ages a and a + 1.
 #   IBNR        The projection runs on the currently entitled; in current pay =
-#               entitled x IBNR(duration) (scripts/09), which is what TR V.C5
-#               counts. Exposure subtracts the entitled (methodology 3.2.c).
+#               entitled x IBNR(duration), which is what TR V.C5 counts. IBNR
+#               grades from today's processing (2024 -> 2025 vintages of 5.D1)
+#               to normal processing (2011 -> 2015 vintages) by 2029 (scripts/09).
+#               Exposure subtracts the entitled (methodology 3.2.c).
 #
 # Age-sex-adjusted rates use OCACT's standard populations as far as we can
 # rebuild them: disabled workers at December 1999 (Supplement 5.D4) for death
@@ -49,8 +51,17 @@ library(tidyr)
 di    <- readRDS("data/di_inputs.rds")
 stock <- readRDS("data/di_stock_2025.rds")
 ibnr  <- readRDS("data/di_ibnr.rds")
-ibnr_arr <- matrix(1, 2, 121, dimnames = list(sexes <- c("M", "F"), 0:120))
-ibnr_arr[cbind(match(as.character(ibnr$sex), sexes), ibnr$duration + 1)] <- ibnr$ibnr
+sexes <- c("M", "F")
+# IBNR by year (DP-07): today's processing (December 2024 -> 2025 vintages)
+# grading linearly to normal processing (2011 -> 2015 vintages) by 2029, the
+# year the TR expects recent pending awards to be realized.
+ibnr_year <- function(t) {
+  w <- min(1, max(0, (t - 2025) / (2029 - 2025)))
+  a <- matrix(1, 2, 121, dimnames = list(sexes, 0:120))
+  r <- ibnr$recent; n <- ibnr$normal
+  a[cbind(match(as.character(r$sex), sexes), r$duration + 1)] <- (1 - w) * r$ibnr + w * n$ibnr[match(paste(r$sex, r$duration), paste(n$sex, n$duration))]
+  a
+}
 ins   <- readRDS("data/insured_rates_calibrated.rds")
 pop   <- readRDS("data/population_dec.rds") |>
   group_by(year, sex, age) |> summarise(pop = sum(pop), .groups = "drop")
@@ -182,7 +193,7 @@ step <- function(state, t, inc_factor, dfac, rfac) {
   st$n <- st$n * keep
   st <- st |> filter(n > 1e-6) |> group_by(sex, e, d, a) |> summarise(n = sum(n), .groups = "drop")
 
-  cp <- sum(st$n * ibnr_arr[cbind(match(st$sex, sexes), pmin(st$d, 120) + 1)])
+  cp <- sum(st$n * ibnr_year(t)[cbind(match(st$sex, sexes), pmin(st$d, 120) + 1)])
   flows <- tibble(year = t, entitlements = sum(ent$n + deaths0 + recov0),
                   deaths = sum(deaths) + sum(deaths0), recoveries = sum(recov) + sum(recov0),
                   conversions = sum(conv), entitled = sum(st$n), stock = cp)
@@ -215,44 +226,70 @@ rfac25 <- target_r25 / base_r[c("M", "F")]
 rfac_ult <- target_r_ult / base_r[c("M", "F")]
 cat("Death factor (2025 level) M/F:", round(dfac, 3), " | recovery factor 2025 M/F:", round(rfac25, 3),
     "-> ultimate", round(rfac_ult, 3), "\n")
-rfac_t <- function(t) if (t >= 2035) rfac_ult else rfac25 + (rfac_ult - rfac25) * (t - 2025) / 10
 # Death factor relative to 2025 improvement: impr_arr is relative to 2025, so
 # dfac applies as is from 2026 (one year of improvement already in impr 2026).
 
 vc5 <- di$vc5 |> select(year, dw)
 
 # ---- Run ---------------------------------------------------------------------------------
-state <- state0
-flows <- list(); age_out <- list(); stock_out <- list(); ifac <- c()
-for (t in years) {
-  rf <- rfac_t(t)
-  if (t <= 2035) {
-    target <- 1000 * vc5$dw[vc5$year == t]
-    f <- function(x) step(state, t, x, dfac, rf)$flows$stock - target
-    lo <- f(0); hi <- f(3)
-    x <- uniroot(f, c(0, 3), f.lower = lo, f.upper = hi, tol = 1e-6)$root
-  } else x <- 1
-  res <- step(state, t, x, dfac, rf)
-  state <- res$state; ifac[as.character(t)] <- x
-  flows[[length(flows) + 1]] <- res$flows
-  age_out[[length(age_out) + 1]] <- res$age_flows |> mutate(year = t)
-  stock_out[[length(stock_out) + 1]] <- state |> group_by(sex, a) |> summarise(n = sum(n), .groups = "drop") |>
-    mutate(year = t)
+adj_rates <- function(age_flows) {
+  age_flows |> group_by(year) |> group_modify(function(g, k) {
+    den <- g |> group_by(sex, age) |> summarise(value = sum(avg), .groups = "drop")
+    dd <- adj_rate(g |> group_by(sex, age) |> summarise(value = sum(deaths), .groups = "drop"), den, std_dib)
+    rr <- adj_rate(g |> group_by(sex, age) |> summarise(value = sum(recov), .groups = "drop"), den, std_dib)
+    tibble(death_adj = unname(dd["total"]), recovery_adj = unname(rr["total"]))
+  }) |> ungroup()
 }
-flows <- bind_rows(flows)
-stock_age <- bind_rows(stock_out)
-age_flows <- bind_rows(age_out)
+# Death factor in year t: dfac x exp(-g (t - 2025)) on top of general-population
+# improvement (g = extra improvement, DP-02).
+run_projection <- function(dfac, rfac25, rfac_ult, g, years = 2026:2100) {
+  rfac_t <- function(t) if (t >= 2035) rfac_ult else rfac25 + (rfac_ult - rfac25) * (t - 2025) / 10
+  state <- state0
+  flows <- list(); age_out <- list(); stock_out <- list(); ifac <- c()
+  for (t in years) {
+    rf <- rfac_t(t); df <- dfac * exp(-g * (t - 2025))
+    if (t <= 2035) {
+      target <- 1000 * vc5$dw[vc5$year == t]
+      f <- function(x) step(state, t, x, df, rf)$flows$stock - target
+      x <- uniroot(f, c(0, 3), tol = 1e-6)$root
+    } else x <- 1
+    res <- step(state, t, x, df, rf)
+    state <- res$state; ifac[as.character(t)] <- x
+    flows[[length(flows) + 1]] <- res$flows
+    age_out[[length(age_out) + 1]] <- res$age_flows |> mutate(year = t)
+    stock_out[[length(stock_out) + 1]] <- state |> group_by(sex, a) |> summarise(n = sum(n), .groups = "drop") |>
+      mutate(year = t)
+  }
+  af <- bind_rows(age_out)
+  list(flows = bind_rows(flows), stock_age = bind_rows(stock_out), age_flows = af,
+       adj = adj_rates(af), ifac = ifac, state = state)
+}
+
+# Calibrate to the memo's published outcomes (DP-02, DP-03), by fixed-point
+# iteration: death termination 26.3 in 2026 and 12.5 in 2100; recovery 18.7 in
+# 2026 and an average of 11.1 over 2036-2100. Sex splits stay as set above.
+g <- 0
+for (it in 1:6) {
+  r <- run_projection(dfac, rfac25, rfac_ult, g)
+  a <- r$adj
+  m <- c(d26 = a$death_adj[a$year == 2026], d2100 = a$death_adj[a$year == 2100],
+         r26 = a$recovery_adj[a$year == 2026], rult = mean(a$recovery_adj[a$year >= 2036]))
+  cat(sprintf("Calibration %d: death 2026 %.2f, 2100 %.2f | recovery 2026 %.2f, 2036-2100 %.2f | g %.4f\n",
+              it, m["d26"], m["d2100"], m["r26"], m["rult"], g))
+  if (max(abs(m / c(26.3, 12.5, 18.7, 11.1) - 1)) < 0.003) break
+  dfac <- dfac * 26.3 / m["d26"]
+  g <- g + log(m["d2100"] / 12.5) / (2100 - 2026)
+  rfac25 <- rfac25 * 18.7 / m["r26"]
+  rfac_ult <- rfac_ult * 11.1 / m["rult"]
+}
+flows <- r$flows; stock_age <- r$stock_age; age_flows <- r$age_flows; ifac <- r$ifac; state <- r$state
+cat("Final factors: death M/F", round(dfac, 3), "extra improvement", round(100 * g, 2), "%/yr | recovery 2025",
+    round(rfac25, 3), "ultimate", round(rfac_ult, 3), "\n")
 
 # ---- Checks ---------------------------------------------------------------------------------
 cat("\nIncidence factor 2026-2035 (1 = ultimate):", paste(round(ifac[as.character(2026:2035)], 3), collapse = " "), "\n")
 
-adj_by_year <- age_flows |> group_by(year) |> group_modify(function(g, k) {
-  dd <- adj_rate(g |> group_by(sex, age) |> summarise(value = sum(deaths), .groups = "drop"),
-                 g |> group_by(sex, age) |> summarise(value = sum(avg), .groups = "drop"), std_dib)
-  rr <- adj_rate(g |> group_by(sex, age) |> summarise(value = sum(recov), .groups = "drop"),
-                 g |> group_by(sex, age) |> summarise(value = sum(avg), .groups = "drop"), std_dib)
-  tibble(death_adj = dd["total"], recovery_adj = rr["total"])
-}) |> ungroup()
+adj_by_year <- r$adj
 
 prev <- stock_age |> rename(age = a) |> group_by(year) |> group_modify(function(g, k) {
   den <- tibble(sex = rep(sexes, each = 121), age = rep(0:120, 2),
@@ -282,7 +319,8 @@ cat("2026 flows (entitled basis) vs 2025 actuals (6.F2, current pay): deaths", r
 dir.create("outputs", showWarnings = FALSE)
 write.csv(checks, "outputs/di_projection_checks.csv", row.names = FALSE)
 saveRDS(list(flows = flows, stock_age = stock_age, age_flows = age_flows, incidence_factor = ifac,
-             death_factor = dfac, recovery_factor = list(y2025 = rfac25, ultimate = rfac_ult),
+             death_factor = dfac, death_extra_improvement = g,
+             recovery_factor = list(y2025 = rfac25, ultimate = rfac_ult),
              checks = checks, state_2100 = state),
         "data/di_projection.rds")
 cat("Saved data/di_projection.rds\n")

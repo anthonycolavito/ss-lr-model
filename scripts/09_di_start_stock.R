@@ -21,13 +21,14 @@
 #   4. Rake (iterative proportional fitting) by sex to 5.A1.2 by age and 5.D1
 #      by year of entitlement. This is the stock in current pay.
 #   5. IBNR (incurred but not reported) factors: the share of those entitled
-#      at each duration whose awards have been processed. Estimated from two
-#      vintages of 5.D1 (December 2024, Supplement 2025; December 2025,
-#      Supplement 2026): an entitlement-year cohort grows from d to d + 1 by
-#      IBNR(d + 1) / IBNR(d) times its survival. Survival by duration comes
-#      from Study 130 and conversions on this stock, scaled so durations 5-15
-#      (IBNR = 1) match their observed ratios. Currently entitled = current
-#      pay / IBNR(duration), as OCACT converts (methodology 3.2.c).
+#      at each duration whose awards have been processed. Estimated from
+#      consecutive vintages of 5.D1: an entitlement-year cohort grows from d to
+#      d + 1 by IBNR(d + 1) / IBNR(d) times its survival. Survival by duration
+#      comes from Study 130 and conversions on this stock, rescaled for each
+#      pair so durations 5-15 (IBNR = 1) match their observed ratios. Two sets:
+#      recent (December 2024 -> 2025) and normal (mean of the 2011 -> 2015
+#      pairs). Currently entitled = current pay / recent IBNR(duration), as
+#      OCACT converts (methodology 3.2.c).
 #
 # Input:  data/di_inputs.rds (08), data/insured_rates_calibrated.rds (07),
 #         data/population_dec.rds (01)
@@ -158,13 +159,16 @@ cat("\nExits implied by Study 130 base rates on this stock: deaths", round(exp_e
     "(2025 actual 217,802) | recoveries", round(exp_exits$recoveries), "(2025 actual 84,602)\n")
 
 # ---- 5. IBNR factors and the currently entitled stock ---------------------------------
-v25 <- di$stock_ent |> filter(!before)
-v24 <- read_supp_5d1("data-raw/supplement/supplement25_all.xlsx") |> filter(!before)
-growth <- v25 |> inner_join(v24, by = c("ent_year", "sex"), suffix = c("_25", "_24")) |>
-  mutate(d24 = 2024L - ent_year, ratio = number_25 / number_24)
+# Vintages of 5.D1 (December of each data year): 2011 (Supplement 2012, PDF),
+# 2012-2015 (Supplements 2013-2016), 2024 (Supplement 2025), 2025 (2026).
+V <- list(`2011` = read_supp_5d1_pdf("data-raw/supplement/5d1_vintages/5D1_2012.pdf"))
+for (y in 2013:2016) V[[as.character(y - 1)]] <- read_supp_5d1(sprintf("data-raw/supplement/5d1_vintages/5d_%d.xlsx", y))
+V[["2024"]] <- read_supp_5d1("data-raw/supplement/supplement25_all.xlsx")
+V[["2025"]] <- di$stock_ent
 
 # One-year survival by duration on this stock: Study 130 base death and
-# recovery (with roughly the 2025 factors, F-08) plus conversion at NRA.
+# recovery (with roughly the 2025 factors, F-08) plus conversion at NRA. Used
+# for its shape by duration; each vintage pair rescales it at durations 5-15.
 nra <- readRDS("data/params_by_cohort.rds") |> transmute(birth_year, nra = nra_months / 12)
 surv_d <- stock |> rowwise() |>
   mutate(qd = 1.11 * q_at(di$su_death, as.character(sex), entl_age, duration),
@@ -174,22 +178,34 @@ surv_d <- stock |> rowwise() |>
          stay = pmin(1, pmax(0, nra_b - (attained_age + 1L))),
          s = (1 - qd - qr) * stay) |>
   group_by(sex, duration) |> summarise(s = sum(number * s) / sum(number), .groups = "drop")
-# Scale so durations 5-15 match the observed cohort ratios (IBNR = 1 there).
-scale <- growth |> filter(d24 >= 5, d24 <= 15) |>
-  inner_join(surv_d |> rename(d24 = duration), by = c("sex", "d24")) |>
-  group_by(sex) |> summarise(k = mean(ratio) / mean(s))
-ibnr <- growth |> filter(d24 <= 4) |>
-  inner_join(surv_d |> rename(d24 = duration), by = c("sex", "d24")) |>
-  inner_join(scale, by = "sex") |>
-  mutate(step = ratio / (s * k)) |>                     # IBNR(d+1) / IBNR(d)
-  arrange(sex, desc(d24)) |> group_by(sex) |>
-  mutate(ibnr = 1 / cumprod(step)) |> ungroup() |>     # IBNR(5) = 1, back to IBNR(0)
-  transmute(sex, duration = d24, ibnr = pmin(1, ibnr))
-ibnr <- bind_rows(ibnr, expand_grid(sex = factor(c("M", "F"), levels = c("M", "F")), duration = 5:60, ibnr = 1)) |>
-  arrange(sex, duration)
-cat("\nIBNR factors (share of the entitled in current pay) by duration:\n")
-print(ibnr |> filter(duration <= 5) |> mutate(ibnr = round(ibnr, 3)) |> pivot_wider(names_from = sex, values_from = ibnr))
-cat("Survival scale (observed / Study 130 + conversions), durations 5-15:", round(scale$k, 3), "\n")
+
+ibnr_pair <- function(y) {
+  a <- V[[as.character(y)]] |> filter(!before); b <- V[[as.character(y + 1)]] |> filter(!before)
+  g <- b |> inner_join(a, by = c("ent_year", "sex"), suffix = c("_next", "_prev")) |>
+    mutate(d = y - ent_year, ratio = number_next / number_prev) |>
+    inner_join(surv_d |> rename(d = duration), by = c("sex", "d"))
+  k <- g |> filter(d >= 5, d <= 15) |> group_by(sex) |> summarise(k = mean(ratio) / mean(s))
+  g |> filter(d <= 4) |> inner_join(k, by = "sex") |>
+    mutate(step = ratio / (s * k)) |>                  # IBNR(d+1) / IBNR(d)
+    arrange(sex, desc(d)) |> group_by(sex) |>
+    mutate(ibnr = pmin(1, 1 / cumprod(step))) |> ungroup() |>   # IBNR(5) = 1
+    transmute(pair = paste0(y, "-", y + 1), sex, duration = d, ibnr, k)
+}
+ibnr_all <- bind_rows(lapply(c(2011:2014, 2024), ibnr_pair))
+cat("\nIBNR factors by duration (share of the entitled in current pay), by vintage pair:\n")
+print(ibnr_all |> select(-k) |> mutate(ibnr = round(ibnr, 3)) |>
+        pivot_wider(names_from = duration, values_from = ibnr, names_prefix = "d"), n = 20)
+cat("Survival scale k by pair (observed / modeled, durations 5-15):\n")
+print(ibnr_all |> distinct(pair, sex, k) |> mutate(k = round(k, 3)) |> pivot_wider(names_from = sex, values_from = k))
+
+# Normal processing (DP-07): mean of the 2011-2015 pairs, the period OCACT's
+# factors come from (2005-2014 entitlements). Recent: the 2024-2025 pair.
+expand5 <- function(d) bind_rows(d, expand_grid(sex = factor(c("M", "F"), levels = c("M", "F")),
+                                               duration = 5:60, ibnr = 1)) |> arrange(sex, duration)
+ibnr_normal <- ibnr_all |> filter(pair != "2024-2025") |> group_by(sex, duration) |>
+  summarise(ibnr = mean(ibnr), .groups = "drop") |> expand5()
+ibnr_recent <- ibnr_all |> filter(pair == "2024-2025") |> select(sex, duration, ibnr) |> expand5()
+ibnr <- ibnr_recent                                    # December 2025 stock uses today's processing
 
 stock <- stock |> left_join(ibnr, by = c("sex", "duration")) |>
   mutate(ibnr = coalesce(ibnr, 1), entitled = number / ibnr)
@@ -197,5 +213,5 @@ cat("Currently entitled, December 2025:", round(sum(stock$entitled)), "| in curr
 
 saveRDS(stock |> select(sex, entl_age, ent_year, duration, attained_age, current_pay = number, entitled),
         "data/di_stock_2025.rds")
-saveRDS(ibnr, "data/di_ibnr.rds")
+saveRDS(list(recent = ibnr_recent, normal = ibnr_normal, by_pair = ibnr_all), "data/di_ibnr.rds")
 cat("Saved data/di_stock_2025.rds, data/di_ibnr.rds\n")

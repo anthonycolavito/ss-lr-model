@@ -212,3 +212,21 @@ read_supp_6c2 <- function(path = supp26("6c.xlsx")) {
   out$sex <- factor(out$sex, levels = c("M", "F"))
   out
 }
+
+#' Table 5.D1 from a PDF edition (the 2012 Supplement, December 2011 data):
+#' single-year rows only. Returns ent_year, sex, number, before (FALSE).
+read_supp_5d1_pdf <- function(path) {
+  L <- pdf_lines(path)
+  i0 <- grep("Single-year data", L)[1]
+  rows <- L[(i0 + 1):length(L)]
+  rows <- rows[grepl("^\\s*[0-9]{4}\\s+[0-9,]+", rows)]
+  v <- lapply(strsplit(trimws(rows), "\\s+"), function(x) as.numeric(gsub(",", "", x)))
+  v <- v[lengths(v) == 13]
+  m <- do.call(rbind, v)
+  out <- rbind(data.frame(ent_year = as.integer(m[, 1]), sex = "M", number = m[, 6]),
+               data.frame(ent_year = as.integer(m[, 1]), sex = "F", number = m[, 10]))
+  out$before <- FALSE
+  out$sex <- factor(out$sex, levels = c("M", "F"))
+  stopifnot(all(abs(m[, 2] - m[, 6] - m[, 10]) <= 1))
+  out
+}
