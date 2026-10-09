@@ -85,6 +85,15 @@ Status: **Adopted** (in use), **Provisional** (in use, to revisit), **Superseded
 | C-06 | OCACT's disability-insured history by age group (data-raw/oact_insured/di_ins_hist.xlsx, 1970–2026) kept as a cross-check, not a target | See C-02 | — | Adopted |
 | C-05 | Disability factors currently absorb the missing disabled-worker add-back (DINADD); recompute after Phase 2 adds it | DINADD needs disabled-worker counts | — | Pending |
 
+## Phase 2: disabled workers (inputs, scripts/08)
+
+| ID | Choice | Reason | Alternatives considered | Status |
+| --- | --- | --- | --- | --- |
+| DI-01 | Base probabilities of death and recovery = Actuarial Study 130 select-and-ultimate tables (2016–20 experience; Tables 7A–7C, 14A–14B) | The same tables OCACT uses as its base (methodology 3.2.b, items 26–27) | — | Adopted |
+| DI-02 | Starting stock = Supplement 2026 5.A1.2 (December 2025, single ages 20–66, under-20 as age 19) and 5.D1 (by year of entitlement) | Latest published MBR counts; matches TR V.C5 (7,126 thousand) | Study 130 Table 6 (December 2024, age groups) | Adopted |
+| DI-03 | Single-age incidence shape from Actuarial Note 2026.6 (cohort born 2006; incidence = new entitlements ÷ active + recovered at start of year) | OCACT's single-age base rates aren't published; the note is computed from the 2026 TR's own rates | Our own 2025 awards ÷ exposure, smoothed | Provisional (see F-07) |
+| DI-04 | History for calibration: Study 130 Tables 3–6 (2001–24) and TR V.C5 (1975–2100) | Published, consistent with each other (men + women = total in every year; 2024 stock matches V.C5) | — | Adopted |
+
 ## Versions of the insured simulation
 
 | Version | Description | Fully insured vs 4.C2, 1990–2025 (RMSE, points) | Age 62 vs TR, 2100 (points) |
@@ -105,3 +114,4 @@ Status: **Adopted** (in use), **Provisional** (in use, to revisit), **Superseded
 | F-04 | Women's gap at 62 came mostly from grading SRCH linearly toward men's | With women's own SRCH 1 and men's 30,000, a 10% weight gave ~3,000. Women-only tests (5,000 records): log-scale blend + refitted women, k = ⅓: age 62 −0.8 (2025), −3.1 (2100); history RMSE 2.6 (was −4.6, −3.0, 3.1). 90% cutoff variants (80%, 95%) did worse | Adopted log blend (S-05) |
 | F-05 | The remaining ~3-point shortfall for women at 62 in 2100 isn't from the inputs we tested | Women's covered rates +5% by 2100: −1.2. Work rate of the temporary or unlawfully present (k) 0–1: −2.7 to −3.9. Their sex split moved to 54% men (ours 47%): −2.5. With men's settings, simulated work-authorized women are slightly more often insured than men (92.6% vs 91.6%, 2037 cohort) | Unexplained; left to a calibration layer |
 | F-06 | Women are too high in early history (1970s–80s, +4 to +5 points) in every variant | Unaffected by grading, k or trend | Candidate cause: before 1978 a QC required $50 earned in the calendar quarter; part-year work (more common for women then) earned fewer QCs than annual earnings imply. OCACT's ANNUAL factor (S-11) handles this; not modeled |
+| F-07 | The note's single-age ultimate incidence, averaged within age groups, runs 3–5% below the methodology's group rates at 30–59 and above at 60+ | Men 50–54: 7.74 vs 8.07 per 1,000; 55–59: 13.4 vs 14.1; 60–64: 16.4 vs 16.2 | To resolve when building incidence: exposure weighting within groups, or a difference in exposure (the note assumes everyone stays insured) |

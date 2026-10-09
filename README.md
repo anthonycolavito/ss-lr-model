@@ -39,5 +39,6 @@ Phase 0 (data and parameters) is done. Run in order:
 | `05_net_immigration.R` | Net immigration by age 1–99, sex, year (births excluded); LPR entrants; temporary or unlawfully present population by age | Totals within 1–2% of TR V.A2; population hits the Trustees' 2025 and 2100 totals, 2029 within 0.1 million |
 | `06_insured_simulation.R` | Fully and disability insured rates by age, sex, year, 1970–2100, OCACT's SLCT/SRCH method with immigrants (uses all cores; about 30 minutes on 2) | Supplement 4.C2 history; TR fully insured at age 62 in 2025 and 2100 |
 | `07_insured_calibrate.R` | Scales 06's rates to Supplement 4.C2 (2016–2025) and the TR's 2100 targets; reports every factor | TR fully insured at 62 (2100) and disability insured at 50 (2100) exactly; 2025 values as checks |
+| `08_di_inputs.R` | Disabled-worker inputs: Study 130 death and recovery tables and 2001–24 history, Actuarial Note 2026.6, Supplement 2026 stock and awards, TR V.C5 | Study 130 worked example; note's Table A probabilities; December 2025 stock vs V.C5 |
 
 Phase 1 (insured status) is being revised to follow OCACT's method more closely; the disability-rolls adjustment waits for Phase 2. Next: Phase 2, disabled workers. Planning and the full checklist live in the build guide (Claude doc).
