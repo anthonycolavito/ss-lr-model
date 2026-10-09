@@ -4,7 +4,7 @@
 # script runs in its own R process, so a script only sees what earlier scripts
 # saved. Run from the repository root:
 #
-#   Rscript scripts/run_all.R            # everything (about an hour on 2 cores)
+#   Rscript scripts/run_all.R            # everything (about 25 minutes on 2 cores)
 #   Rscript scripts/run_all.R 11         # resume from step "11"
 #
 # Insured status (07) and the DI rolls (09, 10) depend on each other: 09 needs
@@ -12,8 +12,8 @@
 # years (DINADD) from 09 and 10. On a fresh build the first 07 runs without
 # DINADD (bootstrap), then the loop runs once more (DECISIONS.md P-10).
 #
-# 06 (insured simulation) is the long step: about 7 minutes to fit SRCH and
-# 35 minutes for the full run on 2 cores. It uses every core it finds.
+# 06 (insured simulation) is the long step: about 21 minutes on 2 cores (3 to
+# fit SRCH, the rest the full run). It uses every core it finds.
 
 steps <- c(
   "01" = "01_import_population.R",

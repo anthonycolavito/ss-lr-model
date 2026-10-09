@@ -30,7 +30,7 @@ The one rule: anything in `data/` or `outputs/` can be rebuilt from `data-raw/` 
 
 Phases 0–3 are done: inputs, insured status, disabled workers and their dependents, and every OASI beneficiary category, 2025–2100. Next is Phase 4, new-award benefit levels (see `CLAUDE.md` for where to start).
 
-Rebuild everything with `Rscript scripts/run_all.R` (about an hour on 2 cores; logs in `outputs/logs/`; `Rscript scripts/run_all.R 11` resumes from step 11). The scripts, in order:
+Rebuild everything with `Rscript scripts/run_all.R` (about 25 minutes on 2 cores; logs in `outputs/logs/`; `Rscript scripts/run_all.R 11` resumes from step 11). The scripts, in order:
 
 | Script | Builds | Checked against |
 | --- | --- | --- |

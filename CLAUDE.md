@@ -46,12 +46,16 @@ the methodology document, the annualizing formula, and the calibration targets.
 setsid nohup Rscript scripts/run_all.R > run_all.log 2>&1 &
 ```
 
-About an hour on 2 cores (06 is ~45 minutes of it); per-step logs go to
-`outputs/logs/`. Setup needs `ranypia` (`remotes::install_github("anthonycolavito/ranypia")`),
+About 25 minutes on 2 cores (06 is 21 of them); per-step logs go to
+`outputs/logs/`. Verified from a fresh clone on October 9, 2026: every step ran,
+and every published target was hit exactly (insured at 62 and 50, V.C5 disabled
+workers 2026–2035, V.C4 retired workers 2026–2035, all V.C4/V.C5 levels). Setup needs `ranypia` (`remotes::install_github("anthonycolavito/ranypia")`),
 `Rcpp` with a compiler, `dplyr`, `tidyr`, `readr`, `readxl`, and `pdftotext`.
 The insured simulation is random (L'Ecuyer streams over all cores), so a rebuild
 on a different core count differs slightly from the figures in DECISIONS.md;
-everything calibrated to a published target still hits it exactly.
+everything calibrated to a published target still hits it exactly. The fresh rebuild moved
+retired workers' 2036–2099 out-of-sample range against V.C4 from −0.8%/+2.4% to
+−1.1%/+2.0%, and the model-only shares of OASI dependents by up to 1.5%.
 
 ## Where things stand (October 8, 2026)
 
