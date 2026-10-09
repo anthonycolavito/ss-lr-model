@@ -67,6 +67,53 @@ read_supp_5a16 <- function(path) {
 }
 
 oasi_vintage_files <- function() {
-  c(sprintf("data-raw/supplement/5a_vintages/5a_%d.xlsx", 2016:2024),
+  c(sprintf("data-raw/supplement/5a_vintages/5a_%d.xlsx", 2013:2024),
     "data-raw/supplement/supplement25_all.xlsx", supp26("5a.xlsx"))
+}
+oasi_vintage_pdfs <- function() sprintf("data-raw/supplement/5a_vintages/5a_%d.pdf", 2008:2012)
+
+#' Table 5.A1.1 from a PDF edition (2008-2012 Supplements, December 2007-2011).
+#' Two layouts: by age and sex (all / men / women columns, 2011+), or by sex,
+#' age and race with Men and Women sections (first column = all races).
+#' Returns year, age, age_hi, sex, number.
+read_supp_5a11_pdf <- function(path) {
+  L <- pdf_lines(path)
+  L <- gsub("–", "-", L)
+  i0 <- grep("Table 5.A1.1", L, fixed = TRUE)[1]
+  i1 <- grep("Table 5.A1.2", L, fixed = TRUE)[1]
+  blk <- L[i0:(i1 - 1)]
+  yr <- as.integer(sub(".*December ([0-9]{4}).*", "\\1", grep("December [0-9]{4}", blk, value = TRUE)[1]))
+  by_race <- any(grepl("race", blk[1:2]))
+  row_re <- "^\\s*([0-9]{2}|[0-9]{2}-[0-9]{2}|[0-9]{2,3} or older)\\s+[0-9,]+"
+  parse_row <- function(x) {
+    f <- strsplit(trimws(x), "\\s{2,}")[[1]]
+    list(lab = f[1], nums = as.numeric(gsub(",", "", f[-1])))
+  }
+  label_age <- function(lab) {
+    if (grepl("or older", lab)) c(as.integer(sub(" or older", "", lab)), 120L)
+    else if (grepl("-", lab)) as.integer(strsplit(lab, "-")[[1]])
+    else rep(as.integer(lab), 2)
+  }
+  rows <- list(); sec <- if (by_race) NA else "both"
+  for (x in blk) {
+    t <- trimws(x)
+    if (by_race && t %in% c("All retired workers", "Men", "Women")) { sec <- t; next }
+    if (!grepl(row_re, x)) next
+    if (by_race && !(sec %in% c("Men", "Women"))) next
+    p <- parse_row(x); a <- label_age(p$lab)
+    if (by_race) {
+      rows[[length(rows) + 1]] <- data.frame(age = a[1], age_hi = a[2], sex = substr(sec, 1, 1), number = p$nums[1])
+    } else {
+      rows[[length(rows) + 1]] <- data.frame(age = a[1], age_hi = a[2], sex = c("M", "F"), number = p$nums[c(3, 5)])
+    }
+  }
+  d <- do.call(rbind, rows)
+  d$sex <- ifelse(d$sex == "W", "F", d$sex)
+  # keep single ages and the groups above the last single age
+  top <- max(d$age[d$age == d$age_hi])
+  d <- d[d$age == d$age_hi | d$age > top, ]
+  d <- d[!duplicated(d[, c("age", "age_hi", "sex")]), ]
+  d$year <- yr
+  d$sex <- factor(d$sex, levels = c("M", "F"))
+  d[, c("year", "age", "age_hi", "sex", "number")]
 }

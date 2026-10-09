@@ -9,7 +9,7 @@
 # added back, so totals compare with Supplement 5.A1.1 and TR V.C4.
 #
 # Prevalence (DECISIONS.md RW-01 to RW-09)
-#   History    2015-2025 from Supplement 5.A1.1 (eleven December editions),
+#   History    2007-2025 from Supplement 5.A1.1 (nineteen December editions),
 #              as retired workers net of converted DI over the exposure.
 #   Age 62     OCACT's printed regression on the employment rate at 62 and the
 #              months from 62 to NRA. The age-62 employment rate isn't
@@ -22,7 +22,7 @@
 #   70         grades linearly from 2025's actual to 0.995 over 20 years.
 #   71+        each cohort keeps its age-70 value (cohorts past 70 in 2025 keep
 #              their 2025 value).
-#   2026-2035  one factor per year on prevalence at 62-69 so the total matches
+#   2026-2035  one factor per year on prevalence at 65-69 so the total matches
 #              TR V.C4 (OCACT's short-range adjustment, SRADJ); the 2035 factor
 #              is held after (RW-07). 2036-2100 is then out of sample.
 #
@@ -37,8 +37,8 @@ source("R/read_oasi.R")
 source("R/read_studies.R")
 
 sexes <- c("M", "F")
-hist_years <- 2015:2025
-years <- 2015:2100
+hist_years <- 2007:2025
+years <- 2007:2100
 ages <- 60:100
 
 popm <- readRDS("data/population_dec.rds") |> mutate(sex = as.character(sex), age = as.integer(age), year = as.integer(year))
@@ -55,7 +55,7 @@ spread_groups <- function(d) {
   single <- d |> filter(age == age_hi) |> select(year, age, sex, number)
   grp <- d |> filter(age_hi > age)
   if (!nrow(grp)) return(single)
-  sp <- grp |> rowwise() |> reframe(year, sex, age = age:min(age_hi, 100), number, g = paste(age, age_hi)) |>
+  sp <- grp |> mutate(g = paste(age, age_hi)) |> rowwise() |> reframe(year, sex, g, number, age = age:min(age_hi, 100)) |>
     left_join(pop, by = c("year", "sex", "age")) |>
     group_by(year, sex, g) |> mutate(number = number * pop / sum(pop)) |> ungroup() |> select(year, age, sex, number)
   bind_rows(single, sp)
@@ -63,9 +63,18 @@ spread_groups <- function(d) {
 
 # ---- 1. History: retired workers and nondisabled widow(er)s ------------------------------
 files <- oasi_vintage_files()
-rw_hist <- bind_rows(lapply(files, read_supp_5a11)) |> mutate(sex = as.character(sex)) |> spread_groups()
+rw_hist <- bind_rows(lapply(files, read_supp_5a11), lapply(oasi_vintage_pdfs(), read_supp_5a11_pdf)) |>
+  mutate(sex = as.character(sex)) |> spread_groups()
 wid_hist <- bind_rows(lapply(files, read_supp_5a16)) |> mutate(sex = as.character(sex)) |> spread_groups()
+# 5.A1.6 isn't in our files before December 2012: 2007-2011 hold 2012's rates by age (RW-05)
+w12 <- wid_hist |> filter(year == 2012) |> inner_join(pop, by = c("year", "sex", "age")) |> transmute(sex, age, wr = number / pop)
+wid_hist <- bind_rows(pop |> filter(year %in% 2007:2011, age >= 60) |> inner_join(w12, by = c("sex", "age")) |>
+                        transmute(year, age, sex, number = pop * wr), wid_hist)
 stopifnot(all(sort(unique(rw_hist$year)) == hist_years))
+chk <- rw_hist |> group_by(year) |> summarise(t = sum(number))
+cat("Retired workers after spreading age groups, 2007/2025 (published 31,527,728 / 53,624,664):",
+    round(chk$t[chk$year == 2007]), "/", round(chk$t[chk$year == 2025]), "\n")
+stopifnot(abs(chk$t[chk$year == 2025] - 53624664) < 10)
 
 # ---- 2. Disabled workers 62-66 in current pay -----------------------------------------------
 # 2025: the stock; 2015-2024: Study 130 Table 6 groups (60-64, 65-66) spread with
@@ -74,7 +83,7 @@ cp25 <- st25 |> mutate(sex = as.character(sex)) |> group_by(sex, age = attained_
   summarise(n = sum(current_pay), .groups = "drop")
 shape <- cp25 |> filter(age >= 60) |> mutate(g = ifelse(age <= 64, "a60_64", "a65_66")) |>
   group_by(sex, g) |> mutate(w = n / sum(n)) |> ungroup()
-di_hist <- di$hist_inforce |> filter(sex != "T", year >= 2015) |> mutate(sex = as.character(sex)) |>
+di_hist <- di$hist_inforce |> filter(sex != "T", year >= 2007) |> mutate(sex = as.character(sex)) |>
   select(year, sex, a60_64, a65_66) |> pivot_longer(c(a60_64, a65_66), names_to = "g", values_to = "n") |>
   inner_join(shape |> select(sex, g, age, w), by = c("sex", "g"), relationship = "many-to-many") |>
   transmute(year, sex, age, dib = n * w)
@@ -208,16 +217,33 @@ diffadj <- diffs |> group_by(sex, N) |>
 cat("\nDIFFADJ (actual - estimated prevalence, 2021-2025 trend at 2025):\n")
 print(diffadj |> mutate(diffadj = round(diffadj, 3)) |> pivot_wider(names_from = N, values_from = diffadj))
 
+# Age-66 adjustment for the NRA-67 cohorts (methodology; RW-10): the 1960
+# cohort's increase from 65 to 66 is set to the 1943 cohort's increase from 64
+# to 65 (first NRA-66 cohort, December 2007 -> 2008). The factor that brings the
+# 1960 cohort's age-66 prevalence to that target applies to later cohorts too
+# (1958-1959 are history here).
+d43 <- hist |> filter((year == 2007 & age == 64) | (year == 2008 & age == 65)) |>
+  group_by(sex) |> summarise(d43 = prev[age == 65] - prev[age == 64])
+p65_1960 <- hist |> filter(year == 2025, age == 65) |> select(sex, p65 = prev)
+est66_1960 <- est |> filter(b == 1960, N == 66) |> inner_join(diffadj, by = c("sex", "N")) |>
+  transmute(sex, p66 = estpr + diffadj)
+adj66 <- d43 |> inner_join(p65_1960, by = "sex") |> inner_join(est66_1960, by = "sex") |>
+  transmute(sex, d43, target = p65 + d43, model = p66, f66 = target / model)
+cat("\nAge-66 adjustment (1943 cohort 64->65 step applied to the 1960 cohort):\n")
+print(adj66 |> mutate(across(where(is.numeric), ~ round(.x, 3))))
+
 p70_25 <- hist |> filter(age == 70, year == 2025) |> select(sex, p70_25 = prev)
 proj_prev <- function(sradj) {
   # sradj: tibble(year, f) multiplying prevalence at 62-69
   p6369 <- est |> inner_join(diffadj, by = c("sex", "N")) |>
-    transmute(year, sex, age = N, p = pmin(0.995, estpr + diffadj)) |> filter(year >= 2026)
+    left_join(adj66 |> select(sex, f66), by = "sex") |>
+    mutate(p = estpr + diffadj, p = ifelse(N == 66 & b >= 1960, p * f66, p)) |>
+    transmute(year, sex, age = N, p = pmin(0.995, p)) |> filter(year >= 2026)
   p62p <- p62_proj |> transmute(year, sex, age = 62L, p = p62)
   p70 <- expand_grid(year = 2026:2100, sex = sexes) |> inner_join(p70_25, by = "sex") |>
     transmute(year, sex, age = 70L, p = 0.995 - (0.995 - p70_25) * pmax(0, (2026 + 19 - year) / 20))
   young <- bind_rows(p62p, p6369, p70) |> left_join(sradj, by = "year") |>
-    mutate(p = ifelse(age >= sr_lo & age <= 69, pmin(0.995, p * coalesce(f, 1)), p)) |> select(-f)
+    mutate(p = ifelse(age >= sr_lo & age <= sr_hi, pmin(0.995, p * coalesce(f, 1)), p)) |> select(-f)
   # 71+: cohort keeps its age-70 value; cohorts past 70 in 2025 keep their 2025 value
   c70 <- bind_rows(hist |> filter(age == 70) |> transmute(b = year - 70L, sex, p70 = prev),
                    young |> filter(age == 70) |> transmute(b = year - 70L, sex, p70 = p))
@@ -236,8 +262,9 @@ project <- function(sradj) {
     mutate(rwn = p * exposure, rw = rwn + conv_stock)
 }
 
-sr_lo <- as.integer(Sys.getenv("SR_LO", "62"))   # lowest age the short-range factor applies to (RW-07)
-# SRADJ: one factor per year 2026-2035 on prevalence at 62-69 so the total
+sr_lo <- as.integer(Sys.getenv("SR_LO", "65"))
+sr_hi <- as.integer(Sys.getenv("SR_HI", "69"))   # lowest age the short-range factor applies to (RW-07)
+# SRADJ: one factor per year 2026-2035 on prevalence at 65-69 so the total
 # matches V.C4; the 2035 factor is held after (RW-07).
 sr <- tibble(year = 2026:2100, f = 1)
 tot_at <- function(sr, y) project(sr) |> filter(year == y) |> summarise(t = sum(rw)) |> pull(t)
