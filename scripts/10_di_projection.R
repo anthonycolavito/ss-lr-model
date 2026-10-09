@@ -192,6 +192,8 @@ step <- function(state, t, inc_factor, dfac, rfac) {
   keep <- pmin(1, pmax(0, nra_of(b) - st$a))
   conv <- st$n * (1 - keep)
   conv_age_raw <- tibble(sex = st$sex, a = st$a, conv = conv)
+  conv_detail <- tibble(sex = st$sex, e = st$e, d = st$d, a = st$a, conv = conv) |> filter(conv > 1e-6) |>
+    group_by(sex, e, d, a) |> summarise(conv = sum(conv), .groups = "drop")
   st$n <- st$n * keep
   st <- st |> filter(n > 1e-6) |> group_by(sex, e, d, a) |> summarise(n = sum(n), .groups = "drop")
 
@@ -204,8 +206,9 @@ step <- function(state, t, inc_factor, dfac, rfac) {
     tibble(sex = ent$sex, age = ent$a - 1L, deaths = deaths0, recov = recov0, avg = (ent$n + deaths0 + recov0) / 2))
   conv_age <- conv_age_raw |> rename(age = a) |> filter(conv > 0) |>
     group_by(sex, age) |> summarise(conv = sum(conv), .groups = "drop")
-  list(state = st, flows = flows, age_flows = age_flows, conv_age = conv_age,
-       entrants = ex |> select(sex, a, exposure, new))
+  list(state = st, flows = flows, age_flows = age_flows, conv_age = conv_age, conv_detail = conv_detail,
+       entrants = ex |> select(sex, a, exposure, new),
+       ent_detail = ent |> mutate(n = n + deaths0 + recov0) |> group_by(sex, e) |> summarise(n = sum(n), .groups = "drop"))
 }
 
 # ---- Starting state, factors -------------------------------------------------------------
@@ -251,6 +254,7 @@ run_projection <- function(dfac, rfac25, rfac_ult, g, ipost = 1, years = 2026:21
   rfac_t <- function(t) if (t >= 2035) rfac_ult else rfac25 + (rfac_ult - rfac25) * (t - 2025) / 10
   state <- state0
   flows <- list(); age_out <- list(); stock_out <- list(); conv_out <- list(); ifac <- c()
+  state_out <- list(); ent_out <- list(); convd_out <- list()
   for (t in years) {
     rf <- rfac_t(t); df <- dfac * exp(-g * (t - 2025))
     if (t <= 2035) {
@@ -264,12 +268,16 @@ run_projection <- function(dfac, rfac25, rfac_ult, g, ipost = 1, years = 2026:21
     age_out[[length(age_out) + 1]] <- res$age_flows |> mutate(year = t)
     conv_out[[length(conv_out) + 1]] <- res$conv_age |> mutate(year = t)
     ib <- ibnr_year(t)[cbind(match(state$sex, sexes), pmin(state$d, 120) + 1)]
+    state_out[[length(state_out) + 1]] <- state |> mutate(cp = n * ib, year = t)
+    ent_out[[length(ent_out) + 1]] <- res$ent_detail |> mutate(year = t)
+    convd_out[[length(convd_out) + 1]] <- res$conv_detail |> mutate(year = t)
     stock_out[[length(stock_out) + 1]] <- state |> mutate(cp = n * ib) |> group_by(sex, a) |>
       summarise(n_d4 = sum(n[d >= 4]), cp = sum(cp), n = sum(n), .groups = "drop") |> mutate(year = t)
   }
   af <- bind_rows(age_out)
   list(flows = bind_rows(flows), stock_age = bind_rows(stock_out), age_flows = af, conv_age = bind_rows(conv_out),
-       adj = adj_rates(af), ifac = ifac, state = state)
+       adj = adj_rates(af), ifac = ifac, state = state,
+       state_by_year = bind_rows(state_out), entitlements_by_age = bind_rows(ent_out), conversions_detail = bind_rows(convd_out))
 }
 
 # Calibrate to the memo's published outcomes (DP-02, DP-03), by fixed-point
@@ -296,6 +304,7 @@ for (it in 1:10) {
 }
 flows <- r$flows; stock_age <- r$stock_age; age_flows <- r$age_flows; ifac <- r$ifac; state <- r$state
 conv_age <- r$conv_age
+state_by_year <- r$state_by_year; entitlements_by_age <- r$entitlements_by_age; conversions_detail <- r$conversions_detail
 cat("Final factors: death M/F", round(dfac, 3), "extra improvement", round(100 * g, 2), "%/yr | recovery 2025",
     round(rfac25, 3), "ultimate", round(rfac_ult, 3), "| incidence 2036-2100", round(ipost, 4), "\n")
 
@@ -335,6 +344,7 @@ write.csv(checks, "outputs/di_projection_checks.csv", row.names = FALSE)
 saveRDS(list(flows = flows, stock_age = stock_age, age_flows = age_flows, conv_age = conv_age, incidence_factor = ifac,
              death_factor = dfac, death_extra_improvement = g, incidence_factor_post2035 = ipost,
              recovery_factor = list(y2025 = rfac25, ultimate = rfac_ult),
-             checks = checks, state_2100 = state),
+             checks = checks, state_2100 = state,
+             state_by_year = state_by_year, entitlements_by_age = entitlements_by_age, conversions_detail = conversions_detail),
         "data/di_projection.rds")
 cat("Saved data/di_projection.rds\n")
