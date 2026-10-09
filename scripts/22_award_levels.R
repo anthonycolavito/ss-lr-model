@@ -8,23 +8,24 @@
 #   points and the intervals move with the average wage index), then COLAs from
 #   the eligibility year through December of the year before the award.
 #
-# Retired workers: PAPs from scripts/19 (shuttled, by year); eligibility year =
+# Retired workers: PAPs from scripts/21 (shuttled in scripts/19 and moved to each year's cohort in 21); eligibility year =
 # award year - (age - 62); MBA = PIA x reduction or delayed credits at that
 # exact age for the cohort's NRA (ages are exact ages at entitlement, as in
 # BEPUF; scripts/14's December ages are about half a year later - EA-03 - and
 # are matched when benefits are put together in Phase 5).
-# Disabled workers: PAPs from scripts/18 (2025 base, held); eligibility year =
+# Disabled workers: PAPs from scripts/21 (scripts/18's 2025 base moved to each cohort); eligibility year =
 # award year - 1 (onset before entitlement, as the 2025 mapping); PIA x
 # (1 - 0.93%), OCACT's adjudication-level adjustment (TF Ops p. 53); MBA = PIA.
 #
 # Check: 2025 averages vs Supplement 6.A4 (fitted in scripts/18-19).
 #
-# Input:  data/paps.rds (18), data/paps_retired.rds (19), params (03)
+# Input:  data/paps.rds (18, intervals), data/paps_projected.rds (21), params (03)
 # Output: data/award_levels.rds
 
 suppressMessages({library(data.table)})
+
 py <- as.data.table(readRDS("data/params_by_year.rds")); pc <- as.data.table(readRDS("data/params_by_cohort.rds"))
-p18 <- readRDS("data/paps.rds"); pr <- readRDS("data/paps_retired.rds")
+p18 <- readRDS("data/paps.rds"); pp <- readRDS("data/paps_projected.rds")$paps
 iv <- p18$intervals
 cola_to <- function(from, to) mapply(function(f, t) if (t - 1 < f) 1 else prod(1 + py$cola[py$year %in% f:(t - 1)] / 100), from, to)
 pia_from <- function(paps, elig) {          # paps: data.table with n, pap; one cell
@@ -38,15 +39,13 @@ claim_factor <- function(age, b) {
   ifelse(m > 0, 1 - pmin(m, 36) * 5 / 900 - pmax(m - 36, 0) * 5 / 1200, 1 + pmin(-m, 12 * (70 - nra_m(b) / 12)) / 12 * drc_rate(b))
 }
 
-ret <- pr$paps[, .(pia_elig = pia_from(.SD, year - (age - 62L))), by = .(year, SEX, age), .SDcols = c("n", "pap")]
+ret <- pp[type == "retired", .(pia_elig = pia_from(.SD, year - (age - 62L))), by = .(year, SEX, age), .SDcols = c("n", "pap")]
 ret[, `:=`(elig = year - (age - 62L), b = year - age)]
 ret[, pia := pia_elig * cola_to(elig, year)]
 ret[, mba := pia * claim_factor(age, b)]
 ret[, type := "retired"]
 
-di_paps <- p18$paps[type == "disabled"]
-di <- CJ(year = 2025:2100, SEX = c("M", "F"), age = sort(unique(di_paps$age)))
-di <- di[, .(pia_elig = pia_from(di_paps[SEX == .BY$SEX & age == .BY$age], year - 1L)), by = .(year, SEX, age)]
+di <- pp[type == "disabled", .(pia_elig = pia_from(.SD, year - 1L)), by = .(year, SEX, age), .SDcols = c("n", "pap")]
 di[, `:=`(elig = year - 1L, b = year - age)]
 di[, pia := pia_elig * (1 - 0.0093) * cola_to(elig, year)]
 di[, `:=`(mba = pia, type = "disabled")]

@@ -88,13 +88,13 @@ model-alone dependent gaps (F-13, F-15, F-16).
 
 ## Phase 4, new-award benefit levels (methodology 4.2): status
 
-Built (scripts 17-20; DECISIONS.md PB-, PP-, PS-, AL-):
+Built (scripts 17-22; DECISIONS.md PB-, PP-, PS-, PE-, AL-):
 
 - Earnings histories: BEPUF 2020 (synthetic), worker beneficiaries entitled
   2016-2020 (Anthony's choice, PB-01). The two files are too big for git; a new
   container needs them re-sent into `data-raw/bepuf/` (`data-raw/SOURCES.md`;
   `data-raw/bepuf/extract_bepuf_earnings.R` rebuilds the earnings extract from
-  SSA's zip). `run_all.R` skips 17-20 without them. Never use BEPUF's AIME/PIA
+  SSA's zip). `run_all.R` skips 17-19 and 21-22 without them. Never use BEPUF's AIME/PIA
   columns (withdrawn by SSA; Anthony found the error).
 - AIMEs with ranypia (17); conversions separated from FRA claims and DI PAPs (18);
   retired PAPs with OCACT's shuttling, the 2025 base calibrated to Supplement
@@ -102,9 +102,13 @@ Built (scripts 17-20; DECISIONS.md PB-, PP-, PS-, AL-):
 - ranypia has no earnings test or totalization; checked that neither matters
   for award levels (PB-05). Revisit the earnings test for NRA reforms.
 
-Open in Phase 4: PS-04, moving the careers to projected average taxable earnings
-by age and sex and to projected covered-worker rates (OCACT's 4.2.1). Until then
-PAPs change after 2025 only through shuttling.
+- Careers moved to each year's cohort (20-21): average taxable earnings by age
+  and sex from Supplement 4.B13 (2012-2023) and covered-worker rates (PE-01 to
+  PE-04); award PIA/MBA by year (22). Men's award PIAs relative to the AWI fall
+  about 7%, women's rise 1-2% (F-23).
+
+Open in Phase 4: OCACT's dispersion adjustment and two smaller rules (PE-05);
+lump-sum death payments.
 
 Carry into Phase 5:
 

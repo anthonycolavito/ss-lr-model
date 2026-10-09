@@ -28,7 +28,7 @@ The one rule: anything in `data/` or `outputs/` can be rebuilt from `data-raw/` 
 
 ## Status
 
-Phases 0–3 are done: inputs, insured status, disabled workers and their dependents, and every OASI beneficiary category, 2025–2100. Phase 4 (new-award benefit levels) is built through award PIAs and MBAs (scripts 17–20); the projection of careers' earnings levels (PS-04) is still open. Scripts 17–20 need the BEPUF 2020 files in `data-raw/bepuf/` (not in git; see `data-raw/SOURCES.md`).
+Phases 0–3 are done: inputs, insured status, disabled workers and their dependents, and every OASI beneficiary category, 2025–2100. Phase 4 (new-award benefit levels) is built through award PIAs and MBAs (scripts 17–20); careers are moved to future cohorts' earnings levels and covered-worker rates (scripts 20–21); OCACT's dispersion adjustment is still open (PE-05). Scripts 17–19 and 21–22 need the BEPUF 2020 files in `data-raw/bepuf/` (not in git; see `data-raw/SOURCES.md`).
 
 Rebuild everything with `Rscript scripts/run_all.R` (about 25 minutes on 2 cores; logs in `outputs/logs/`; `Rscript scripts/run_all.R 11` resumes from step 11). The scripts, in order:
 
@@ -53,7 +53,9 @@ Rebuild everything with `Rscript scripts/run_all.R` (about 25 minutes on 2 cores
 | `17_bepuf_aime.R` | AIMEs of 587,883 recent new worker beneficiaries from BEPUF 2020 earnings (ranypia); needs the BEPUF files in `data-raw/bepuf/` (not in git) | 2025 award distributions by PIA (Supplement 6.B4, 6.C1) |
 | `18_paps.R` | PAPs by sex and age at entitlement (retired 62–70, disabled 24–66) from BEPUF careers raked to 2025 awards; conversions separated | 2025 award distributions (fitted); average award benefits by age, 6.A4 (not fitted; F-22) |
 | `19_paps_shuttle.R` | Retired-worker PAPs by year 2025–2100, sex and age 62–70, with OCACT's shuttling; 2025 base raked to 6.B4/6.A4 | 2025 average award benefits by age (fitted), PIA distribution within 1–2 points |
-| `20_award_levels.R` | Average award PIA and MBA by year, sex and age at entitlement, retired and disabled workers | 2025 averages vs 6.A4 |
+| `20_ate_by_age.R` | Average taxable earnings by age and sex relative to the AWI, 1951–2100 (Supplement 4.B13 2012–2023, 4.B2/4.B6 before, held after) | 4.B13 totals |
+| `21_paps_projection.R` | PAPs moved to each year's cohort: earnings levels by age and sex and covered-worker rates (OCACT 4.2.1) | — (F-23) |
+| `22_award_levels.R` | Average award PIA and MBA by year, sex and age at entitlement, retired and disabled workers | 2025 averages vs 6.A4 |
 
 ## Setup
 
