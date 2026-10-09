@@ -65,6 +65,13 @@ long <- sim |> pivot_longer(c(fully, disability), names_to = "status", values_to
 
 # ---- 0. DINADD: disabled workers on the rolls 4+ years, by year, sex, age -------------
 di <- readRDS("data/di_inputs.rds")
+# Fresh build: scripts/09 needs this script's rates before the DI stock exists,
+# so the first pass runs without DINADD (scripts/run_all.R: 07 -> 09 -> 10 -> 07 -> 09 -> 10).
+bootstrap <- !file.exists("data/di_stock_2025.rds")
+if (bootstrap) {
+  cat("Bootstrap pass: no DI stock yet (scripts/09), DINADD set to zero\n")
+  dinadd <- pop |> transmute(year, sex, age, dinadd_rate = 0)
+} else {
 st25 <- readRDS("data/di_stock_2025.rds") |> mutate(sex = factor(sex, levels = c("M", "F")))
 ag <- c("a15_19", "a20_24", "a25_29", "a30_34", "a35_39", "a40_44", "a45_49", "a50_54", "a55_59", "a60_64", "a65_66")
 glo <- c(15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65); ghi <- c(19, 24, 29, 34, 39, 44, 49, 54, 59, 64, 66)
@@ -94,6 +101,7 @@ if (is.null(din_proj)) {
 dinadd <- bind_rows(din_early, din_hist, din_2025, din_proj) |>
   group_by(year, sex, age) |> summarise(dinadd = sum(dinadd), .groups = "drop") |>
   inner_join(pop, by = c("year", "sex", "age")) |> transmute(year, sex, age, dinadd_rate = dinadd / pop)
+}
 long <- long |> left_join(dinadd |> mutate(status = "disability"), by = c("year", "sex", "age", "status")) |>
   mutate(dinadd_rate = coalesce(dinadd_rate, 0))
 long_cmp <- long |> filter(!(status == "disability" & age >= 65))

@@ -308,8 +308,10 @@ cat("Disability insured at 50, both sexes (TR: 75.9% in 2025, 77.4% in 2100):",
 #   v5  OCACT SRCH by age group and sex, log-graded women    (this run)
 # (v2, latent with Study 127 teens, matched v1 on history; see
 #  outputs/insured_method_comparison_v1_v3.csv.)
-v1 <- readRDS("data/insured_rates_v1_latent_oldteens.rds")
-v3 <- readRDS("data/insured_rates_v3_ocact_single.rds")
+# Earlier versions' rates are kept only where they were built (they aren't
+# rebuilt by the current scripts); a fresh clone skips the comparison and keeps
+# the committed outputs/insured_method_comparison*.csv.
+have_old <- file.exists("data/insured_rates_v1_latent_oldteens.rds") && file.exists("data/insured_rates_v3_ocact_single.rds")
 summarise_fit <- function(rates, label) {
   hist <- compare(rates) |>
     filter(year >= 1990, group %in% c("20_24", fit_groups)) |>
@@ -320,26 +322,38 @@ summarise_fit <- function(rates, label) {
     mutate(status = "fully")
   hist |> left_join(a62, by = c("status", "sex")) |> mutate(version = label, .before = 1)
 }
-method_cmp <- bind_rows(
-  summarise_fit(v1, "v1 latent, assumed teens, no immigrants"),
-  summarise_fit(v3, "v3 OCACT, one SLCT/SRCH for 25+, immigrants"),
-  summarise_fit(insured_rates, "v5 OCACT, SRCH by age group and sex, log-graded women")
-) |> mutate(across(where(is.double), ~ round(.x, 4)))
-cat("\nVersions: fit to 4.C2 (ages 20-74, 1990-2025) and gap to TR fully insured at 62:\n")
-print(method_cmp, n = Inf, width = 200)
+if (have_old) {
+  v1 <- readRDS("data/insured_rates_v1_latent_oldteens.rds")
+  v3 <- readRDS("data/insured_rates_v3_ocact_single.rds")
+  method_cmp <- bind_rows(
+    summarise_fit(v1, "v1 latent, assumed teens, no immigrants"),
+    summarise_fit(v3, "v3 OCACT, one SLCT/SRCH for 25+, immigrants"),
+    summarise_fit(insured_rates, "v5 OCACT, SRCH by age group and sex, log-graded women")
+  ) |> mutate(across(where(is.double), ~ round(.x, 4)))
+  cat("\nVersions: fit to 4.C2 (ages 20-74, 1990-2025) and gap to TR fully insured at 62:\n")
+  print(method_cmp, n = Inf, width = 200)
 
-by_group_2025 <- bind_rows(compare(v1) |> mutate(version = "v1"),
-                           compare(v3) |> mutate(version = "v3"),
-                           cmp |> mutate(version = "v5")) |>
-  filter(year == 2025) |>
-  select(version, status, sex, group, sim, rate) |>
-  pivot_wider(names_from = version, values_from = sim) |>
-  mutate(across(where(is.double), ~ round(.x, 3))) |>
-  arrange(desc(status), sex, group)
+  by_group_2025 <- bind_rows(compare(v1) |> mutate(version = "v1"),
+                             compare(v3) |> mutate(version = "v3"),
+                             cmp |> mutate(version = "v5")) |>
+    filter(year == 2025) |>
+    select(version, status, sex, group, sim, rate) |>
+    pivot_wider(names_from = version, values_from = sim) |>
+    mutate(across(where(is.double), ~ round(.x, 3))) |>
+    arrange(desc(status), sex, group)
+} else {
+  method_cmp <- summarise_fit(insured_rates, "v5 OCACT, SRCH by age group and sex, log-graded women") |>
+    mutate(across(where(is.double), ~ round(.x, 4)))
+  cat("\nFit to 4.C2 (ages 20-74, 1990-2025) and gap to TR fully insured at 62:\n")
+  print(method_cmp, n = Inf, width = 200)
+  by_group_2025 <- NULL
+}
 
 dir.create("outputs", showWarnings = FALSE)
-write.csv(method_cmp, "outputs/insured_method_comparison.csv", row.names = FALSE)
-write.csv(by_group_2025, "outputs/insured_method_comparison_2025_by_group.csv", row.names = FALSE)
+if (have_old) {
+  write.csv(method_cmp, "outputs/insured_method_comparison.csv", row.names = FALSE)
+  write.csv(by_group_2025, "outputs/insured_method_comparison_2025_by_group.csv", row.names = FALSE)
+}
 saveRDS(insured_rates, "data/insured_rates.rds")
 saveRDS(list(calibration = cal,
              params = list(M = m_params, F = f_params, k = k_by_sex),

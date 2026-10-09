@@ -8,3 +8,4 @@
 # Built by scripts/ from data-raw/; rebuild rather than commit
 data/*.rds
 outputs/*.rds
+outputs/logs/
