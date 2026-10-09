@@ -133,7 +133,22 @@ base_age <- base |>
   reframe(age = ages, base = approx(mid, factor, xout = ages, rule = 2)$y)
 
 # ---- 3. Projection grade to the TR's 2100 targets ------------------------------
-at <- function(st, a, yr) long |> filter(status == st, age == a, year == yr)
+# Cohort adjustment to OCACT's 2025 estimates (C-08). Supplement 4.C2's
+# 2023-2025 values are OCACT's own estimates, not actual data. Each cohort's
+# insured rate is scaled by the ratio of OCACT's 2025 estimate to our rate for
+# its age group in 2025 (interpolated to single ages at group midpoints), phased
+# in over 2023-2025 and carried with the cohort as it ages, so a cohort that
+# OCACT estimates as less insured in 2025 stays less insured at 62. Cohorts
+# under 20 in 2025 are not adjusted (no 2025 estimate covers them; 20-24 is
+# taken from 25-29, F-01). The period grading below then still hits the TR
+# anchors at 62 and 50 exactly. Tested and not adopted: retired workers fit
+# V.C4 worse out of sample (C-08). On with C08=1.
+use_c08 <- Sys.getenv("C08", "0") == "1"   # tested and not adopted (C-08)
+hfac <- NULL
+at <- function(st, a, yr) long |> filter(status == st, age == a, year == yr) |>
+  left_join(hfac_join(), by = c("year", "sex", "age", "status")) |> mutate(sim = sim * coalesce(h, 1)) |> select(-h)
+hfac_join <- function() if (is.null(hfac)) tibble(year = numeric(), sex = factor(character(), levels = c("M", "F")),
+  age = numeric(), status = character(), h = numeric()) else hfac
 b_at <- function(st, a) base_age |> filter(status == st, age == a) |> select(sex, base)
 
 g_at <- function(yr) {
@@ -148,14 +163,38 @@ g_at <- function(yr) {
 }
 grade <- g_at(2025) |> rename(g2025 = g) |>
   inner_join(g_at(2100) |> rename(g2100 = g), by = c("sex", "status"))
+gpath <- function(grade) function(year, g2025, g2100) ifelse(year <= 2022, 1,
+  ifelse(year <= 2025, 1 + (g2025 - 1) * (year - 2022) / 3, g2025 + (g2100 - g2025) * (year - 2025) / (2100 - 2025)))
+if (use_c08) {
+  # Our calibrated rates by group in 2025 without the adjustment
+  cal25 <- long |> filter(year == 2025) |> inner_join(base_age, by = c("status", "sex", "age")) |>
+    inner_join(grade, by = c("status", "sex")) |> mutate(rate = sim * base * g2025 + dinadd_rate) |>
+    filter(!(status == "disability" & age >= 65)) |>
+    inner_join(pop |> filter(year == 2025), by = c("year", "sex", "age")) |>
+    inner_join(groups, by = join_by(between(age, lo, hi))) |>
+    group_by(status, sex, group, lo, hi) |>
+    summarise(ours = sum(rate * pop) / sum(pop), add = sum(dinadd_rate * pop) / sum(pop), .groups = "drop") |>
+    inner_join(inp$targets |> filter(year == 2025) |> select(status, sex, group, est = rate), by = c("status", "sex", "group")) |>
+    filter(lo >= 25) |>
+    mutate(mid = ifelse(group == "75plus", 80, (lo + hi) / 2), R = (est - add) / (ours - add))
+  cat("\nC-08: OCACT's 2025 estimate / our 2025 rate, by group:\n")
+  print(cal25 |> select(status, sex, group, R) |> mutate(R = round(R, 4)) |> pivot_wider(names_from = c(status, sex), values_from = R), n = Inf)
+  r_age <- cal25 |> group_by(status, sex) |>
+    reframe(a25 = 0:100, R = approx(c(19, 20, mid), c(1, 1, R), xout = 0:100, rule = 2)$y)
+  hfac <- expand_grid(year = 2023:2100, age = sort(unique(long$age))) |> mutate(a25 = 2025 - (year - age)) |>
+    inner_join(r_age, by = "a25", relationship = "many-to-many") |>
+    mutate(h = 1 + (R - 1) * pmin(1, (year - 2022) / 3)) |> select(year, sex, age, status, h)
+  grade <- g_at(2025) |> rename(g2025 = g) |> inner_join(g_at(2100) |> rename(g2100 = g), by = c("sex", "status"))
+}
 
 calibrated <- long |>
   inner_join(base_age, by = c("status", "sex", "age")) |>
   inner_join(grade, by = c("status", "sex")) |>
+  left_join(hfac_join(), by = c("year", "sex", "age", "status")) |>
   mutate(g = ifelse(year <= 2022, 1,
                     ifelse(year <= 2025, 1 + (g2025 - 1) * (year - 2022) / 3,
                            g2025 + (g2100 - g2025) * (year - 2025) / (2100 - 2025))),
-         factor = base * g,
+         factor = base * g * coalesce(h, 1),
          rate = sim * factor + dinadd_rate) |>
   select(year, age, sex, status, sim, factor, rate, dinadd_rate) |>
   pivot_wider(names_from = status, values_from = c(sim, factor, rate, dinadd_rate)) |>

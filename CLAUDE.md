@@ -82,7 +82,8 @@ Outputs Phase 4 builds on:
 4.C2 (`outputs/tr_comparison.csv`); the dashboard "Model vs Trustees 2026"
 (https://claude.ai/artifact/LGUWYB7UszUQkyxoYDR36K) shows it. Rerun 16 and
 refresh that dashboard's two data files after changes. Open findings from it:
-F-20 (insured rates above OCACT's 2023–2025 estimates at 25–54) and the
+F-20 (insured rates above OCACT's 2023–2025 estimates at 25–54; a fix was
+tested and rejected, C-08) and the
 model-alone dependent gaps (F-13, F-15, F-16).
 
 ## Next: Phase 4, new-award benefit levels (methodology 4.2)
