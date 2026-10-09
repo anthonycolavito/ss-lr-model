@@ -50,7 +50,9 @@ source("R/insured_sim.R")
 inp <- readRDS("data/insured_inputs.rds")
 imm <- readRDS("data/immigration_status.rds")
 pop_dec <- readRDS("data/population_dec.rds")
+RNGkind("L'Ecuyer-CMRG")   # reproducible random streams across cores
 set.seed(20261008)
+n_cores <- parallel::detectCores()
 
 ages <- 13:84
 cohorts <- 1870:2087                       # aged 100 in 1970 .. aged 13 in 2100
@@ -238,14 +240,14 @@ if (file.exists(calib_file) && !inputs_newer) {
   cat("Calibration: reusing", calib_file, "\n")
 } else {
   t0 <- Sys.time()
-  fits_m <- parallel::mclapply(k_grid, mc.cores = 2, FUN = function(k) {
+  fits_m <- parallel::mclapply(k_grid, mc.cores = n_cores, FUN = function(k) {
     sl <- calibrate_sex("M", k)
     list(k = k, slct = sl, age62 = age62_check("M", k, sl))
   })
   sse_m <- sapply(fits_m, function(f) sum(f$age62$gap^2))
   best_m <- fits_m[[which.min(sse_m)]]
   m_params <- group_params(best_m$slct)
-  fits_f <- parallel::mclapply(k_grid, mc.cores = 2, FUN = function(k) {
+  fits_f <- parallel::mclapply(k_grid, mc.cores = n_cores, FUN = function(k) {
     sl <- calibrate_sex("F", k, m_params)
     list(k = k, slct = sl, age62 = age62_check("F", k, sl, m_params))
   })
@@ -273,13 +275,13 @@ f_params <- group_params(cal$best_f$slct)
 cat("\nChosen k: men", round(k_by_sex["M"], 2), "| women", round(k_by_sex["F"], 2), "\n")
 
 # ---- Full run ------------------------------------------------------------------
-# Men and women on separate cores; progress every 20 cohorts.
-sim <- bind_rows(parallel::mclapply(c("M", "F"), mc.cores = 2, FUN = function(sx) {
-  bind_rows(lapply(split(cohorts, ceiling(seq_along(cohorts) / 20)), function(cs) {
-    r <- run_cohorts(cs, sx, 30000, m_params = m_params, f_params = f_params, k = k_by_sex[sx])
-    message(format(Sys.time(), "%H:%M"), " ", sx, " cohorts through ", max(cs), " of ", max(cohorts))
-    r
-  }))
+# Cohorts in chunks of 10 per sex, spread over all cores; progress per chunk.
+jobs <- expand_grid(sx = c("M", "F"), chunk = split(cohorts, ceiling(seq_along(cohorts) / 10)))
+sim <- bind_rows(parallel::mclapply(seq_len(nrow(jobs)), mc.cores = n_cores, FUN = function(i) {
+  sx <- jobs$sx[i]; cs <- jobs$chunk[[i]]
+  r <- run_cohorts(cs, sx, 30000, m_params = m_params, f_params = f_params, k = k_by_sex[sx])
+  message(format(Sys.time(), "%H:%M"), " ", sx, " cohorts ", min(cs), "-", max(cs), " done")
+  r
 }))
 insured_rates <- to_year_age(sim, k_by_sex) |> select(year, age, sex, fully, disability) |>
   arrange(sex, year, age)
@@ -303,7 +305,7 @@ cat("Disability insured at 50, both sexes (TR: 75.9% in 2025, 77.4% in 2100):",
 # ---- Compare versions ----------------------------------------------------------
 #   v1  latent method, assumed teens, no immigrants          (saved)
 #   v3  OCACT SLCT/SRCH, one value for ages 25+, immigrants  (saved)
-#   v4  OCACT SLCT by age group and sex, immigrants          (this run)
+#   v5  OCACT SRCH by age group and sex, log-graded women    (this run)
 # (v2, latent with Study 127 teens, matched v1 on history; see
 #  outputs/insured_method_comparison_v1_v3.csv.)
 v1 <- readRDS("data/insured_rates_v1_latent_oldteens.rds")
@@ -321,14 +323,14 @@ summarise_fit <- function(rates, label) {
 method_cmp <- bind_rows(
   summarise_fit(v1, "v1 latent, assumed teens, no immigrants"),
   summarise_fit(v3, "v3 OCACT, one SLCT/SRCH for 25+, immigrants"),
-  summarise_fit(insured_rates, "v4 OCACT, SLCT by age group and sex, immigrants")
+  summarise_fit(insured_rates, "v5 OCACT, SRCH by age group and sex, log-graded women")
 ) |> mutate(across(where(is.double), ~ round(.x, 4)))
 cat("\nVersions: fit to 4.C2 (ages 20-74, 1990-2025) and gap to TR fully insured at 62:\n")
 print(method_cmp, n = Inf, width = 200)
 
 by_group_2025 <- bind_rows(compare(v1) |> mutate(version = "v1"),
                            compare(v3) |> mutate(version = "v3"),
-                           cmp |> mutate(version = "v4")) |>
+                           cmp |> mutate(version = "v5")) |>
   filter(year == 2025) |>
   select(version, status, sex, group, sim, rate) |>
   pivot_wider(names_from = version, values_from = sim) |>

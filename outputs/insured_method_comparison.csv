@@ -7,7 +7,7 @@
 "v3 OCACT, one SLCT/SRCH for 25+, immigrants","disability","F",0.0479,-0.0421,NA,NA
 "v3 OCACT, one SLCT/SRCH for 25+, immigrants","fully","M",0.0302,-0.011,0.0129,0.0344
 "v3 OCACT, one SLCT/SRCH for 25+, immigrants","fully","F",0.0413,-0.026,-0.0037,0.0104
-"v4 OCACT, SLCT by age group and sex, immigrants","disability","M",0.0342,-0.008,NA,NA
-"v4 OCACT, SLCT by age group and sex, immigrants","disability","F",0.0372,0.0102,NA,NA
-"v4 OCACT, SLCT by age group and sex, immigrants","fully","M",0.0179,0.0064,-0.009,-0.0011
-"v4 OCACT, SLCT by age group and sex, immigrants","fully","F",0.0305,0.0156,-0.0456,-0.0301
+"v5 OCACT, SRCH by age group and sex, log-graded women","disability","M",0.0342,-0.008,NA,NA
+"v5 OCACT, SRCH by age group and sex, log-graded women","disability","F",0.0358,0.0082,NA,NA
+"v5 OCACT, SRCH by age group and sex, log-graded women","fully","M",0.0179,0.0064,-0.009,-0.0011
+"v5 OCACT, SRCH by age group and sex, log-graded women","fully","F",0.0262,0.0183,-0.0094,-0.0292

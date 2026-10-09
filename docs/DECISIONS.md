@@ -74,6 +74,16 @@ Status: **Adopted** (in use), **Provisional** (in use, to revisit), **Superseded
 | S-10 | Calibration: for each k in {0, ⅓, ⅔, 1}, fit SRCH group by group, youngest first, to zero average gap with 4.C2 fully insured (1990–2025); choose k by the TR's fully insured share at 62 (men 92.6% 2025, 88.4% 2100; women 88.5%, 87.7%). Men first, then women | Each age's status depends only on earlier work; every k then matches history, so the projection picks k. After 40 QCs status is permanent, so remaining gaps at older ages come from earlier in those cohorts' lives and are reported, not forced | Joint grid over all parameters (too costly) | Not working yet: 20–24 can't get low enough and 25–29 needs near-random selection, so most groups hit the search bounds (see F-01) |
 | S-11 | Not yet modeled: disabled-worker add-back to disability insured (DINADD), pre-1978 ANNUAL factor, 10% earnings retention for DACA | DINADD needs Phase 2 counts; others unpublished/minor | — | Pending (DINADD in Phase 2) |
 
+## Calibration layer (scripts/07)
+
+| ID | Choice | Reason | Alternatives considered | Status |
+| --- | --- | --- | --- | --- |
+| C-01 | Scale simulated insured rates to published figures, both sexes and both statuses | Keeps simulation gaps (F-05, F-06, missing DINADD) out of later phases; same rule for everyone so differences by sex reflect policy, not uneven treatment | Women only (inconsistent); no layer (carries 3-point errors forward) | Adopted |
+| C-02 | Base factor = 4.C2 rate / simulated rate by status, sex and 4.C2 age group, pooled over 2016–2025; disability compared below 65 only | Latest decade of history; pooling smooths year-to-year noise | Year-specific factors (fit history exactly but jump at 2025); longer window (weights old cohorts with the pre-1978 problem, F-06) | Provisional |
+| C-03 | Single-age factors linear between group midpoints (u20 at 16, 75+ at 80), flat beyond | No steps at group edges, as for the inputs (I-04) | Step by group | Adopted |
+| C-04 | After 2025 a second factor per status and sex grades linearly from 1 (2025) to the value that hits the TR in 2100: fully insured at 62 by sex; disability insured at 50, one factor for both sexes. TR 2025 values are checks, not forced. Caps: fully ≤ 99.5%, disability ≤ fully | The TR publishes only these six numbers; linear grading is the simplest shape between them. 2025 is already pinned by 4.C2 | Force TR 2025 too (conflicts with 4.C2 where they differ); age-specific grading (no data to set it) | Provisional |
+| C-05 | Disability factors currently absorb the missing disabled-worker add-back (DINADD); recompute after Phase 2 adds it | DINADD needs disabled-worker counts | — | Pending |
+
 ## Versions of the insured simulation
 
 | Version | Description | Fully insured vs 4.C2, 1990–2025 (RMSE, points) | Age 62 vs TR, 2100 (points) |
@@ -82,6 +92,7 @@ Status: **Adopted** (in use), **Provisional** (in use, to revisit), **Superseded
 | v2 | v1 with Study 127 teen shape | men 1.3, women 2.2 | men +1.8, women +2.5 |
 | v3 | OCACT SLCT/SRCH, one value for ages 25+, immigrants | men 3.0, women 4.1 (too low at 25–34, too high at 65–74) | men +3.4, women +1.0 (k at its floor, 0) |
 | v4 | OCACT, SRCH by age group and sex, smoothed single-age inputs, F-03 fix; k men ⅔, women 0 | Fully insured RMSE 1990–2025, ages 20–74: men 1.8, women 3.1 points (v3: 3.0, 4.1, but v3 had the F-03 bug). Most groups still at SRCH bounds | Age 62 vs TR: men −0.9 (2025), −0.1 (2100); women −4.6, −3.0. Disability insured at 50: 76.8% / 77.2% (TR 75.9 / 77.4), before DINADD |
+| v5 | v4 plus log-scale grading of women's SRCH (S-05), women refitted, k men ⅔, women ⅓. Men carried over from v4 (grading affects women only) | Fully insured RMSE 1990–2025, ages 20–74: men 1.8, women 2.6 points | Age 62 vs TR: men −0.9 (2025), −0.1 (2100); women −0.9, −2.9. Disability insured at 50: 76.5% / 76.8% (TR 75.9 / 77.4), before DINADD. Calibrated by 07: 2100 targets exact; women's 2100 factor 1.04, all others within 0.94–1.10 except under-20 (0.63–0.72) |
 
 ## Findings
 
