@@ -12,12 +12,24 @@
 #     simulation; combined as  sim x (L + 0.75 k U) / (L + U)
 #
 # Calibration
-#   Stage 1  SLCT and SRCH (ages 25+; 18-24 one lower on SLCT; 13-17 fixed) to
-#            Supplement 4.C2 fully insured rates, ages 25-74, 1990-2025
-#   Stage 2  k by sex (covered-worker rate of the temporary or unlawfully
-#            present relative to everyone else) to the TR's fully insured
-#            share at age 62: men 92.6% (2025) and 88.4% (2100), women 88.5%
-#            and 87.7% (2026 TR, Program Assumptions, section V.C.3)
+#   SRCH varies by 4.C2 age group and sex (SLCT fixed at 4; ages 13-17 at
+#   SLCT 1, SRCH 3). OCACT varies both by single age, but its values aren't
+#   published and our history comes in 5-year groups, so one parameter per
+#   group is what the data can pin down; SRCH is the one with range (see
+#   group_params() in R/insured_sim.R).
+#
+#   For each candidate k (covered-worker rate of the temporary or unlawfully
+#   present relative to everyone else), SRCH is fitted group by group, youngest
+#   first, so the simulated fully insured rate has zero average gap to 4.C2
+#   over 1990-2025. Insured status at an age depends only on work up to that
+#   age, so each group's SRCH is settled before the next. After 40 QCs status
+#   is permanent, so at older ages a group's own SRCH moves its rate little;
+#   gaps that remain there come from earlier in those cohorts' lives and are
+#   reported, not forced. Every k then matches
+#   history; k is chosen by the TR's fully insured share at age 62: men 92.6%
+#   (2025) and 88.4% (2100), women 88.5% and 87.7% (2026 TR, Program
+#   Assumptions, section V.C.3). Men first: women's SLCT is graded toward men's
+#   as women's covered-worker rate approaches men's.
 #
 # Then a full run, a check against 4.C2 and the TR, and a comparison with our
 # earlier latent-attachment versions.
@@ -38,7 +50,9 @@ source("R/insured_sim.R")
 inp <- readRDS("data/insured_inputs.rds")
 imm <- readRDS("data/immigration_status.rds")
 pop_dec <- readRDS("data/population_dec.rds")
+RNGkind("L'Ecuyer-CMRG")   # reproducible random streams across cores
 set.seed(20261008)
+n_cores <- parallel::detectCores()
 
 ages <- 13:84
 cohorts <- 1870:2087                       # aged 100 in 1970 .. aged 13 in 2100
@@ -153,75 +167,122 @@ age62 <- function(rates) {
     mutate(gap = fully - target)
 }
 
-# ---- Stage 1: SLCT and SRCH --------------------------------------------------
-k0 <- c(M = 0.5, F = 0.5)    # provisional; revisited in stage 2
-grid <- expand_grid(slct = c(2, 3, 4, 5, 6, 8), srch = c(20, 100, 500, 2000))
-calibrate <- function(sex, m_params = NULL) {
-  grid |>
-    rowwise() |>
-    mutate(score = list({
-      pa <- age_params(slct, srch)
-      sim <- if (sex == "M") run_cohorts(calib_cohorts, "M", 5000, m_params = pa, k = k0["M"])
-             else run_cohorts(calib_cohorts, "F", 5000, m_params = m_params, f_params = pa, k = k0["F"])
-      score_hist(to_year_age(sim, k0), sex)
-    })) |>
-    unnest(score) |> ungroup() |> mutate(sex = sex)
-}
-# Stage 1 takes several minutes; its result is saved and reused unless the
-# inputs have changed since (delete data/insured_stage1.rds to force a rerun).
-stage1_file <- "data/insured_stage1.rds"
-inputs_newer <- file.exists(stage1_file) &&
-  any(file.mtime(c("data/insured_inputs.rds", "data/immigration_status.rds")) > file.mtime(stage1_file))
-t0 <- Sys.time()
-if (file.exists(stage1_file) && !inputs_newer) {
-  st1 <- readRDS(stage1_file); calib_m <- st1$m; calib_f <- st1$f
-  best_m <- calib_m |> slice_min(rmse_fully, n = 1, with_ties = FALSE)
-  m_params <- age_params(best_m$slct, best_m$srch)
-  best_f <- calib_f |> slice_min(rmse_fully, n = 1, with_ties = FALSE)
-  f_params <- age_params(best_f$slct, best_f$srch)
-  cat("Stage 1: reusing", stage1_file, "\n")
-} else {
-  calib_m <- calibrate("M")
-  best_m <- calib_m |> slice_min(rmse_fully, n = 1, with_ties = FALSE)
-  m_params <- age_params(best_m$slct, best_m$srch)
-  calib_f <- calibrate("F", m_params)
-  best_f <- calib_f |> slice_min(rmse_fully, n = 1, with_ties = FALSE)
-  f_params <- age_params(best_f$slct, best_f$srch)
-  saveRDS(list(m = calib_m, f = calib_f), stage1_file)
-}
-cat("Stage 1 took", round(as.numeric(Sys.time() - t0, units = "mins"), 1), "minutes\n")
-cat("\nStage 1 grid (fit to 4.C2 fully insured, ages 25-74, 1990-2025):\n")
-print(bind_rows(calib_m, calib_f) |> select(sex, slct, srch, rmse_fully, bias_fully, rmse_disab) |>
-        mutate(across(where(is.double), ~ round(.x, 4))), n = Inf)
-cat("\nChosen: men SLCT", best_m$slct, "SRCH", best_m$srch,
-    "| women SLCT", best_f$slct, "SRCH", best_f$srch, "\n")
+# ---- Calibration ------------------------------------------------------------
+group_ages <- tibble(
+  group = c("20_24", "25_29", "30_34", "35_39", "40_44", "45_49", "50_54",
+            "55_59", "60_64", "65_69", "70_74", "75plus"),
+  lo = c(20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75),
+  hi = c(24, 29, 34, 39, 44, 49, 54, 59, 64, 69, 74, 84)
+)
 
-# ---- Stage 2: k by sex, to the TR's age-62 fully insured shares ---------------
-# Cohorts around those turning 62 in 2025 (born 1963) and 2100 (born 2038).
-k_grid <- c(0, 0.2, 0.4, 0.6, 0.8, 1.0)
-t0 <- Sys.time()
-stage2 <- expand_grid(sex = c("M", "F"), k = k_grid) |>
-  rowwise() |>
-  mutate(res = list({
-    sx <- sex
-    kk <- setNames(c(k, k), c("M", "F"))
-    sim <- run_cohorts(c(1961:1965, 2036:2040), sx, 30000,
-                       m_params = m_params, f_params = f_params, k = k)
-    age62(to_year_age(sim, kk)) |> filter(.data$sex == sx) |> select(year, fully, target, gap)
+# Mean gap to 4.C2 (fully insured, 1990-2025) for one group, one sex.
+group_gap <- function(sex, k, srch_vec, m_params, grp, N = 3000) {
+  g <- group_ages[group_ages$group == grp, ]
+  cs <- seq(1990 - g$hi, 2025 - g$lo, by = 2)
+  pa <- group_params(srch_vec)
+  set.seed(4242)                         # same random draws for every SLCT tried
+  sim <- bind_rows(lapply(cs, function(c) {
+    x <- cohort_inputs(c, sex, k)
+    p_use <- if (sex == "M") pa else grade_female_params(pa, m_params, x$p, x$p_m)
+    r <- simulate_cohort_ocact(c, x$p, x$qc_ratio, inp$frac_points, inp$frac_low_power,
+                               p_use$slct, p_use$srch, imm_frac = x$imm_frac, N = N,
+                               max_age = g$hi)
+    r$cohort <- c; r
   })) |>
-  unnest(res) |> ungroup()
-cat("\nStage 2 took", round(as.numeric(Sys.time() - t0, units = "mins"), 1), "minutes\n")
-print(stage2 |> mutate(across(where(is.double), ~ round(.x, 4))), n = Inf)
-k_fit <- stage2 |> group_by(sex, k) |> summarise(sse = sum(gap^2), .groups = "drop") |>
-  group_by(sex) |> slice_min(sse, n = 1, with_ties = FALSE)
-k_by_sex <- setNames(k_fit$k, as.character(k_fit$sex))
-cat("\nChosen k: men", k_by_sex["M"], "| women", k_by_sex["F"], "\n")
+    mutate(sex = factor(sex, levels = c("M", "F")), year = cohort + age) |>
+    filter(!is.na(fully))
+  kk <- setNames(c(k, k), c("M", "F"))
+  rates <- to_year_age(sim, kk) |> filter(age >= g$lo, age <= max(g$hi, if (grp == "75plus") 100 else g$hi))
+  compare(rates) |>
+    filter(sex == !!sex, group == grp, status == "fully", year >= 1990, year <= 2025) |>
+    summarise(gap = mean(gap)) |> pull(gap)
+}
+
+# Fit SLCT group by group for one sex at a given k. For women, `m_params`
+# carries the men's fitted values (grading).
+calibrate_sex <- function(sex, k, m_params = NULL) {
+  srch <- setNames(rep(100, nrow(group_ages)), group_ages$group)
+  for (grp in group_ages$group) {
+    idx <- which(group_ages$group == grp)
+    # search on log10(SRCH) between 1 and 30,000
+    f <- function(lv) { s <- srch; s[idx:length(s)] <- 10^lv; group_gap(sex, k, s, m_params, grp) }
+    lo <- f(0); hi <- f(log10(30000))
+    lv <- if (lo <= 0) 0 else if (hi >= 0) log10(30000) else
+      uniroot(f, c(0, log10(30000)), f.lower = lo, f.upper = hi, tol = 0.02, maxiter = 12)$root
+    srch[idx:length(srch)] <- 10^lv
+  }
+  srch
+}
+
+age62_check <- function(sex, k, slct_vec, m_params = NULL, N = 10000) {
+  pa <- group_params(slct_vec)
+  set.seed(777)
+  sim <- bind_rows(lapply(c(1961:1965, 2036:2040), function(c) {
+    x <- cohort_inputs(c, sex, k)
+    p_use <- if (sex == "M") pa else grade_female_params(pa, m_params, x$p, x$p_m)
+    r <- simulate_cohort_ocact(c, x$p, x$qc_ratio, inp$frac_points, inp$frac_low_power,
+                               p_use$slct, p_use$srch, imm_frac = x$imm_frac, N = N,
+                               max_age = 62)
+    r$cohort <- c; r
+  })) |> mutate(sex = factor(sex, levels = c("M", "F")), year = cohort + age) |>
+    filter(!is.na(fully))
+  age62(to_year_age(sim, setNames(c(k, k), c("M", "F")))) |> filter(.data$sex == !!sex)
+}
+
+calib_file <- "data/insured_calibration.rds"
+inputs_newer <- file.exists(calib_file) &&
+  any(file.mtime(c("data/insured_inputs.rds", "data/immigration_status.rds",
+                   "R/insured_sim.R", "src/insured_select.cpp")) > file.mtime(calib_file))
+k_grid <- c(0, 1/3, 2/3, 1)
+
+if (file.exists(calib_file) && !inputs_newer) {
+  cal <- readRDS(calib_file)
+  cat("Calibration: reusing", calib_file, "\n")
+} else {
+  t0 <- Sys.time()
+  fits_m <- parallel::mclapply(k_grid, mc.cores = n_cores, FUN = function(k) {
+    sl <- calibrate_sex("M", k)
+    list(k = k, slct = sl, age62 = age62_check("M", k, sl))
+  })
+  sse_m <- sapply(fits_m, function(f) sum(f$age62$gap^2))
+  best_m <- fits_m[[which.min(sse_m)]]
+  m_params <- group_params(best_m$slct)
+  fits_f <- parallel::mclapply(k_grid, mc.cores = n_cores, FUN = function(k) {
+    sl <- calibrate_sex("F", k, m_params)
+    list(k = k, slct = sl, age62 = age62_check("F", k, sl, m_params))
+  })
+  sse_f <- sapply(fits_f, function(f) sum(f$age62$gap^2))
+  best_f <- fits_f[[which.min(sse_f)]]
+  cal <- list(fits_m = fits_m, fits_f = fits_f, best_m = best_m, best_f = best_f)
+  saveRDS(cal, calib_file)
+  cat("Calibration took", round(as.numeric(Sys.time() - t0, units = "mins"), 1), "minutes\n")
+}
+
+show_fits <- function(fits, sex) {
+  bind_rows(lapply(fits, function(f) {
+    tibble(sex = sex, k = round(f$k, 2),
+           gap62_2025 = round(f$age62$gap[f$age62$year == 2025], 4),
+           gap62_2100 = round(f$age62$gap[f$age62$year == 2100], 4),
+           !!!as.list(round(f$slct)))
+  }))
+}
+cat("\nSRCH by age group (fitted to 4.C2; SLCT 4) and gap to TR at age 62, for each k:\n")
+print(bind_rows(show_fits(cal$fits_m, "M"), show_fits(cal$fits_f, "F")), width = 250)
+
+k_by_sex <- c(M = cal$best_m$k, F = cal$best_f$k)
+m_params <- group_params(cal$best_m$slct)
+f_params <- group_params(cal$best_f$slct)
+cat("\nChosen k: men", round(k_by_sex["M"], 2), "| women", round(k_by_sex["F"], 2), "\n")
 
 # ---- Full run ------------------------------------------------------------------
-sim <- bind_rows(
-  run_cohorts(cohorts, "M", 30000, m_params = m_params, k = k_by_sex["M"]),
-  run_cohorts(cohorts, "F", 30000, m_params = m_params, f_params = f_params, k = k_by_sex["F"])
-)
+# Cohorts in chunks of 10 per sex, spread over all cores; progress per chunk.
+jobs <- expand_grid(sx = c("M", "F"), chunk = split(cohorts, ceiling(seq_along(cohorts) / 10)))
+sim <- bind_rows(parallel::mclapply(seq_len(nrow(jobs)), mc.cores = n_cores, FUN = function(i) {
+  sx <- jobs$sx[i]; cs <- jobs$chunk[[i]]
+  r <- run_cohorts(cs, sx, 30000, m_params = m_params, f_params = f_params, k = k_by_sex[sx])
+  message(format(Sys.time(), "%H:%M"), " ", sx, " cohorts ", min(cs), "-", max(cs), " done")
+  r
+}))
 insured_rates <- to_year_age(sim, k_by_sex) |> select(year, age, sex, fully, disability) |>
   arrange(sex, year, age)
 
@@ -242,26 +303,13 @@ cat("Disability insured at 50, both sexes (TR: 75.9% in 2025, 77.4% in 2100):",
     paste(round(100 * d50$disability, 1), collapse = " / "), "\n")
 
 # ---- Compare versions ----------------------------------------------------------
-#   v1  latent method, assumed teen weights, no immigrants  (first run, saved)
-#   v2  latent method, Study 127 teen weights, no immigrants
-#   v3  OCACT SLCT/SRCH, Study 127 teens, LPR entrants and T/U population
+#   v1  latent method, assumed teens, no immigrants          (saved)
+#   v3  OCACT SLCT/SRCH, one value for ages 25+, immigrants  (saved)
+#   v5  OCACT SRCH by age group and sex, log-graded women    (this run)
+# (v2, latent with Study 127 teens, matched v1 on history; see
+#  outputs/insured_method_comparison_v1_v3.csv.)
 v1 <- readRDS("data/insured_rates_v1_latent_oldteens.rds")
-lat_inputs <- function(c, sex) {
-  yr <- c + ages; ok <- yr %in% yrs_all; idx <- cbind(match(yr, yrs_all), ages + 1)
-  get <- function(m) { v <- rep(NA_real_, length(ages)); v[ok] <- m[idx[ok, , drop = FALSE]]; v }
-  list(p = get(cov_arr[[sex]]), qc_ratio = qc_by_year[as.character(yr)] / get(med_arr[[sex]]))
-}
-v2 <- bind_rows(lapply(c("M", "F"), function(sex) {
-  rho <- if (sex == "M") 0.90 else 0.85
-  bind_rows(lapply(cohorts, function(c) {
-    x <- lat_inputs(c, sex)
-    r <- simulate_cohort_latent(c, x$p, x$qc_ratio, inp$frac_points, inp$frac_low_power,
-                                N = 30000, rho = rho)
-    r$cohort <- c; r
-  })) |> mutate(sex = factor(sex, levels = c("M", "F")), year = cohort + age)
-})) |> to_year_age(c(M = 1, F = 1) / 0.75) |>      # k/alpha = 1/0.75 x 0.75 -> no adjustment
-  select(year, age, sex, fully, disability)
-
+v3 <- readRDS("data/insured_rates_v3_ocact_single.rds")
 summarise_fit <- function(rates, label) {
   hist <- compare(rates) |>
     filter(year >= 1990, group %in% c("20_24", fit_groups)) |>
@@ -274,15 +322,15 @@ summarise_fit <- function(rates, label) {
 }
 method_cmp <- bind_rows(
   summarise_fit(v1, "v1 latent, assumed teens, no immigrants"),
-  summarise_fit(v2, "v2 latent, Study 127 teens, no immigrants"),
-  summarise_fit(insured_rates, "v3 OCACT SLCT/SRCH, Study 127 teens, immigrants")
+  summarise_fit(v3, "v3 OCACT, one SLCT/SRCH for 25+, immigrants"),
+  summarise_fit(insured_rates, "v5 OCACT, SRCH by age group and sex, log-graded women")
 ) |> mutate(across(where(is.double), ~ round(.x, 4)))
 cat("\nVersions: fit to 4.C2 (ages 20-74, 1990-2025) and gap to TR fully insured at 62:\n")
 print(method_cmp, n = Inf, width = 200)
 
 by_group_2025 <- bind_rows(compare(v1) |> mutate(version = "v1"),
-                           compare(v2) |> mutate(version = "v2"),
-                           cmp |> mutate(version = "v3")) |>
+                           compare(v3) |> mutate(version = "v3"),
+                           cmp |> mutate(version = "v5")) |>
   filter(year == 2025) |>
   select(version, status, sex, group, sim, rate) |>
   pivot_wider(names_from = version, values_from = sim) |>
@@ -293,9 +341,8 @@ dir.create("outputs", showWarnings = FALSE)
 write.csv(method_cmp, "outputs/insured_method_comparison.csv", row.names = FALSE)
 write.csv(by_group_2025, "outputs/insured_method_comparison_2025_by_group.csv", row.names = FALSE)
 saveRDS(insured_rates, "data/insured_rates.rds")
-saveRDS(list(stage1 = bind_rows(calib_m, calib_f), stage2 = stage2,
-             params = list(M = m_params, F = f_params, k = k_by_sex,
-                           chosen = bind_rows(best_m, best_f)),
+saveRDS(list(calibration = cal,
+             params = list(M = m_params, F = f_params, k = k_by_sex),
              comparison = cmp, methods = method_cmp),
         "data/insured_fit.rds")
 cat("\nSaved data/insured_rates.rds:", nrow(insured_rates), "rows\n")

@@ -16,13 +16,16 @@
 //   4. Repeat until the target number is chosen.
 //
 // zero_run[i] is record i's count of consecutive prior years with no QCs.
+// SLCT may be fractional: each pick uses floor(SLCT) or floor(SLCT) + 1, the
+// latter with probability equal to the fractional part. That lets calibration
+// move SLCT smoothly instead of in whole years.
 // Returns a logical vector: TRUE = not a covered worker this year.
 
 #include <Rcpp.h>
 using namespace Rcpp;
 
 // [[Rcpp::export]]
-LogicalVector select_noncovered(IntegerVector zero_run, int n_target, int slct, int srch) {
+LogicalVector select_noncovered(IntegerVector zero_run, int n_target, double slct, int srch) {
   int n = zero_run.size();
   LogicalVector chosen(n, false);
   if (n_target <= 0) return chosen;
@@ -35,11 +38,13 @@ LogicalVector select_noncovered(IntegerVector zero_run, int n_target, int slct, 
     if (i >= n) i = n - 1;
     int examined = 0, best = -1, best_run = -1;
     int pick = -1;
+    int slct_i = (int) std::floor(slct);
+    if (R::runif(0.0, 1.0) < slct - slct_i) ++slct_i;
     for (int step = 0; step < n; ++step) {
       int k = (i + step) % n;
       if (chosen[k]) continue;
       ++examined;
-      if (zero_run[k] >= slct) { pick = k; break; }
+      if (zero_run[k] >= slct_i) { pick = k; break; }
       if (zero_run[k] > best_run) { best_run = zero_run[k]; best = k; }
       if (examined >= srch) { pick = best; break; }
     }
