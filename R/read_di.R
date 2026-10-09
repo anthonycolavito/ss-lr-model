@@ -123,15 +123,16 @@ read_text_sheet <- function(path, sheet) {
 }
 
 #' Table 5.A1.2: disabled-worker beneficiaries in current-payment status by
-#' single age (20-66) and sex, December 2025. "Under 20" is returned as age 19.
+#' single age (20-66) and sex, December 2025, with average monthly benefit (mba).
+#' "Under 20" is returned as age 19.
 read_supp_5a12 <- function(path = supp26("5a.xlsx")) {
   d <- read_text_sheet(path, "5.A1.2")
   single <- !is.na(d[[2]]) & grepl("^[0-9]+$", d[[2]])
   u20 <- which(trimws(d[[1]]) == "Under 20")
   rows <- c(u20, which(single))
   age <- c(19L, as.integer(d[[2]][single]))
-  out <- rbind(data.frame(age = age, sex = "M", number = as.numeric(d[[6]][rows])),
-               data.frame(age = age, sex = "F", number = as.numeric(d[[8]][rows])))
+  out <- rbind(data.frame(age = age, sex = "M", number = as.numeric(d[[6]][rows]), mba = as.numeric(d[[7]][rows])),
+               data.frame(age = age, sex = "F", number = as.numeric(d[[8]][rows]), mba = as.numeric(d[[9]][rows])))
   out$sex <- factor(out$sex, levels = c("M", "F"))
   tot <- d[!is.na(d[[3]]) & d[[3]] == "Total", ]
   stopifnot(abs(sum(out$number[out$sex == "M"]) - as.numeric(tot[[6]])) < 1,

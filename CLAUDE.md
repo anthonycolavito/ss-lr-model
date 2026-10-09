@@ -125,7 +125,10 @@ Carry into Phase 5:
 
 Phase 5 started: post-entitlement factors (24; DECISIONS.md PF-01 to PF-04,
 F-25, F-26). Retired from Supplement 5.B4 editions 2014-2026, DI from 5.D1 editions
-2012-2026, both over OCACT's window 2014-15 to 2023-24.
+2012-2026, both over OCACT's window 2014-15 to 2023-24. DI benefits in current
+pay (25; DB-01 to DB-06): carried by cohort, started from 5.D1 and 5.A1.2, no
+separate workers' compensation offset (DB-04). Open: F-27 (DI cost trend +5%
+vs the TR by 2035; check once dependents and annualizing are in).
 
 After Phase 4: Phase 5 (benefits in current pay: starting PIA/MBA matrices,
 roll-forward with COLAs and post-entitlement factors, workers' compensation
