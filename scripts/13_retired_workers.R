@@ -26,7 +26,7 @@
 #              TR V.C4 (OCACT's short-range adjustment, SRADJ); the 2035 factor
 #              is held after (RW-07). 2036-2100 is then out of sample.
 #
-# Input:  scripts 01-03, 07, 08, 10 outputs; Supplement 5.A1.1 and 5.A1.6
+# Input:  scripts 01-03, 07, 08, 10, 12 outputs; Supplement 5.A1.1 and 5.A1.6
 #         vintages; Study 127; 6.F1, 6.F2; Study 130 Table 5
 # Output: data/retired_workers.rds, outputs/retired_workers_checks.csv
 
@@ -144,18 +144,11 @@ conv_stock <- {
 # Exposure = population x fully insured - DI in current pay - converted DI -
 # widow(er) beneficiaries x fully insured (insured widow(er)s drawing the widow
 # benefit instead of their own, RW-05).
-wid_proj_rate <- wid_hist |> filter(year == 2025) |> inner_join(pop, by = c("year", "sex", "age")) |>
-  transmute(sex, age, wr = number / pop)
 vc4 <- read_tr_single_year("V.C4", c("rw", "rw_spouse", "rw_child", "widow", "mother", "surv_child", "parent", "total"))
-wid_all <- bind_rows(wid_hist |> rename(wid = number),
-                     pop |> filter(year >= 2026, age >= 60) |> inner_join(wid_proj_rate, by = c("sex", "age")) |>
-                       transmute(year, age, sex, wid = pop * wr))
-# Projected widow(er)s keep their 2025 ratio to V.C4's widow(er) total (which
-# also counts disabled widow(er)s) - interim until equation 3.3.1 is built.
-r25 <- sum(wid_hist$number[wid_hist$year == 2025]) / (1000 * vc4$widow[vc4$year == 2025])
-wscale <- wid_all |> filter(year >= 2026) |> group_by(year) |> summarise(w = sum(wid)) |>
-  inner_join(vc4 |> select(year, widow), by = "year") |> transmute(year, k = r25 * 1000 * widow / w)
-wid_all <- wid_all |> left_join(wscale, by = "year") |> mutate(wid = wid * coalesce(k, 1)) |> select(-k)
+# Aged widow(er)s: scripts/12 (history 2012-2025 from 5.A1.6, projection at
+# V.C4 levels); 2007-2011 hold 2012's rates by age (RW-05).
+aw <- readRDS("data/aged_widows.rds")$aged |> transmute(year = as.integer(year), sex, age = as.integer(age), wid = aged)
+wid_all <- bind_rows(wid_hist |> filter(year < 2012) |> rename(wid = number), aw)
 
 base <- expand_grid(year = years, sex = sexes, age = 62:100) |>
   left_join(pop, by = c("year", "sex", "age")) |>

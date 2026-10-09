@@ -39,8 +39,8 @@ read_supp_5a11 <- function(path) {
 
 #' Table 5.A1.6: nondisabled widow(er) beneficiaries by single age (60+) and
 #' sex of the beneficiary, December of the data year ("By age" block only).
-read_supp_5a16 <- function(path) {
-  d <- read_text_sheet(path, "5.A1.6")
+read_supp_5a16 <- function(path, sheet = "5.A1.6") {
+  d <- read_text_sheet(path, sheet)
   yr <- supp_data_year(d)
   i_end <- which(!is.na(d[[1]]) & grepl("^By marital", d[[1]]))
   if (!length(i_end)) i_end <- nrow(d) + 1
@@ -116,4 +116,15 @@ read_supp_5a11_pdf <- function(path) {
   d$year <- yr
   d$sex <- factor(d$sex, levels = c("M", "F"))
   d[, c("year", "age", "age_hi", "sex", "number")]
+}
+
+
+#' Tables 5.A1.6 / 5.A1.7: widow(er)s by marital status (nondivorced, divorced)
+#' and sex of the beneficiary, December of the data year.
+read_supp_widow_marital <- function(path, sheet = "5.A1.6") {
+  d <- read_text_sheet(path, sheet)
+  yr <- supp_data_year(d)
+  r <- which(!is.na(d[[2]]) & d[[2]] %in% c("Nondivorced", "Divorced"))
+  rbind(data.frame(year = yr, marital = d[[2]][r], sex = "M", number = as.numeric(d[[7]][r])),
+        data.frame(year = yr, marital = d[[2]][r], sex = "F", number = as.numeric(d[[9]][r])))
 }
