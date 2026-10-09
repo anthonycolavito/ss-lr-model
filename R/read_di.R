@@ -186,3 +186,28 @@ read_supp_6f2_di <- function(path = supp26("6f.xlsx")) {
   v <- suppressWarnings(as.numeric(d[[6]]))
   data.frame(reason = lab, number = v)[!is.na(v), ]
 }
+
+#' Table 6.C2: disabled-worker awards by year (annual from 1980), sex, and age
+#' group at award (percent distribution times number). Groups: under 30,
+#' 30-39, 40-44, 45-49, 50-54, 55-59, 60-61, 62-64, 65-FRA.
+read_supp_6c2 <- function(path = supp26("6c.xlsx")) {
+  d <- read_text_sheet(path, "6.C2")
+  sec <- rep(NA_character_, nrow(d))
+  cur <- NA
+  for (i in seq_len(nrow(d))) {
+    if (!is.na(d[[3]][i]) && d[[3]][i] %in% c("Men", "Women")) cur <- d[[3]][i]
+    sec[i] <- cur
+  }
+  keep <- !is.na(sec) & !is.na(d[[1]]) & grepl("^[0-9]{4}$", d[[1]])
+  grp <- c("u30", "30_39", "40_44", "45_49", "50_54", "55_59", "60_61", "62_64", "65_fra")
+  out <- data.frame(year = as.integer(d[[1]][keep]), sex = c(Men = "M", Women = "F")[sec[keep]],
+                    number = as.numeric(d[[3]][keep]))
+  pct <- sapply(6:14, function(j) suppressWarnings(as.numeric(d[[j]][keep])))
+  pct[is.na(pct)] <- 0
+  colnames(pct) <- grp
+  out <- cbind(out, pct)
+  out <- tidyr::pivot_longer(out, tidyr::all_of(grp), names_to = "group", values_to = "pct")
+  out$awards <- out$number * out$pct / 100
+  out$sex <- factor(out$sex, levels = c("M", "F"))
+  out
+}
