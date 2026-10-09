@@ -140,16 +140,17 @@ read_supp_5a12 <- function(path = supp26("5a.xlsx")) {
 }
 
 #' Table 5.D1: disabled-worker beneficiaries by year of entitlement and sex,
-#' December 2025 (1987-2025, plus "Before 1987" returned as year 1986 with
-#' before_1987 = TRUE).
+#' December of the edition's data year. "Before YYYY" is returned as year
+#' YYYY - 1 with before = TRUE. Works for the 2025 and 2026 editions.
 read_supp_5d1 <- function(path = supp26("5d.xlsx")) {
   d <- read_text_sheet(path, "5.D1")
   yr <- trimws(d[[1]])
-  keep <- !is.na(yr) & (grepl("^[0-9]{4}$", yr) | yr == "Before 1987")
+  keep <- !is.na(yr) & grepl("^([0-9]{4}|Before [0-9]{4})$", yr)
   out <- rbind(data.frame(ent_year = yr[keep], sex = "M", number = as.numeric(d[[7]][keep])),
                data.frame(ent_year = yr[keep], sex = "F", number = as.numeric(d[[11]][keep])))
-  out$before_1987 <- out$ent_year == "Before 1987"
-  out$ent_year <- ifelse(out$before_1987, 1986L, suppressWarnings(as.integer(out$ent_year)))
+  out$before <- grepl("^Before", out$ent_year)
+  out$ent_year <- ifelse(out$before, as.integer(sub("Before ", "", out$ent_year)) - 1L,
+                         suppressWarnings(as.integer(out$ent_year)))
   out$sex <- factor(out$sex, levels = c("M", "F"))
   tot <- d[!is.na(d[[2]]) & d[[2]] == "Total", ]
   stopifnot(abs(sum(out$number[out$sex == "M"]) - as.numeric(tot[[7]])) < 1,
