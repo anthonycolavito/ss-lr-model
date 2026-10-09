@@ -14,7 +14,8 @@
 #               uses the note's row a + 1. From 2036 these are the ultimate
 #               rates. For 2026-2035 one factor per year, all ages and both
 #               sexes, set so the year-end total matches TR V.C5 (OCACT's
-#               short-range reconciliation, IPROJG).
+#               short-range reconciliation, IPROJG). For 2036-2100 one constant
+#               factor so the average gap to V.C5 is zero (DP-08, F-10).
 #   Deaths      Study 130 select-and-ultimate base x a factor by sex set to the
 #               memo's 2025 age-sex-adjusted death termination rate (26.3 per
 #               1,000), then improved at the general population's rate by age
@@ -242,7 +243,7 @@ adj_rates <- function(age_flows) {
 }
 # Death factor in year t: dfac x exp(-g (t - 2025)) on top of general-population
 # improvement (g = extra improvement, DP-02).
-run_projection <- function(dfac, rfac25, rfac_ult, g, years = 2026:2100) {
+run_projection <- function(dfac, rfac25, rfac_ult, g, ipost = 1, years = 2026:2100) {
   rfac_t <- function(t) if (t >= 2035) rfac_ult else rfac25 + (rfac_ult - rfac25) * (t - 2025) / 10
   state <- state0
   flows <- list(); age_out <- list(); stock_out <- list(); ifac <- c()
@@ -252,7 +253,7 @@ run_projection <- function(dfac, rfac25, rfac_ult, g, years = 2026:2100) {
       target <- 1000 * vc5$dw[vc5$year == t]
       f <- function(x) step(state, t, x, df, rf)$flows$stock - target
       x <- uniroot(f, c(0, 3), tol = 1e-6)$root
-    } else x <- 1
+    } else x <- ipost
     res <- step(state, t, x, df, rf)
     state <- res$state; ifac[as.character(t)] <- x
     flows[[length(flows) + 1]] <- res$flows
@@ -268,26 +269,32 @@ run_projection <- function(dfac, rfac25, rfac_ult, g, years = 2026:2100) {
 # Calibrate to the memo's published outcomes (DP-02, DP-03), by fixed-point
 # iteration: death termination 26.3 in 2026 and 12.5 in 2100; recovery 18.7 in
 # 2026 and an average of 11.1 over 2036-2100. Sex splits stay as set above.
-g <- 0
-for (it in 1:6) {
-  r <- run_projection(dfac, rfac25, rfac_ult, g)
+# The same loop sets one constant incidence factor for 2036-2100 (DP-08) so the
+# average gap of current pay to TR V.C5 over 2036-2100 is zero.
+g <- 0; ipost <- 1
+for (it in 1:10) {
+  r <- run_projection(dfac, rfac25, rfac_ult, g, ipost)
   a <- r$adj
+  gap <- r$flows |> filter(year >= 2036) |> inner_join(vc5, by = "year") |>
+    summarise(g = mean(stock / (1000 * dw) - 1)) |> pull(g)
   m <- c(d26 = a$death_adj[a$year == 2026], d2100 = a$death_adj[a$year == 2100],
          r26 = a$recovery_adj[a$year == 2026], rult = mean(a$recovery_adj[a$year >= 2036]))
-  cat(sprintf("Calibration %d: death 2026 %.2f, 2100 %.2f | recovery 2026 %.2f, 2036-2100 %.2f | g %.4f\n",
-              it, m["d26"], m["d2100"], m["r26"], m["rult"], g))
-  if (max(abs(m / c(26.3, 12.5, 18.7, 11.1) - 1)) < 0.003) break
+  cat(sprintf("Calibration %d: death 2026 %.2f, 2100 %.2f | recovery 2026 %.2f, 2036-2100 %.2f | g %.4f | post-2035 incidence %.4f, mean gap %+.2f%%\n",
+              it, m["d26"], m["d2100"], m["r26"], m["rult"], g, ipost, 100 * gap))
+  if (max(abs(m / c(26.3, 12.5, 18.7, 11.1) - 1)) < 0.003 && abs(gap) < 0.001) break
   dfac <- dfac * 26.3 / m["d26"]
   g <- g + log(m["d2100"] / 12.5) / (2100 - 2026)
   rfac25 <- rfac25 * 18.7 / m["r26"]
   rfac_ult <- rfac_ult * 11.1 / m["rult"]
+  ipost <- ipost / (1 + gap)^1.3            # stock responds less than one-for-one within the window
 }
 flows <- r$flows; stock_age <- r$stock_age; age_flows <- r$age_flows; ifac <- r$ifac; state <- r$state
 cat("Final factors: death M/F", round(dfac, 3), "extra improvement", round(100 * g, 2), "%/yr | recovery 2025",
-    round(rfac25, 3), "ultimate", round(rfac_ult, 3), "\n")
+    round(rfac25, 3), "ultimate", round(rfac_ult, 3), "| incidence 2036-2100", round(ipost, 4), "\n")
 
 # ---- Checks ---------------------------------------------------------------------------------
-cat("\nIncidence factor 2026-2035 (1 = ultimate):", paste(round(ifac[as.character(2026:2035)], 3), collapse = " "), "\n")
+cat("\nIncidence factor 2026-2035 (1 = ultimate):", paste(round(ifac[as.character(2026:2035)], 3), collapse = " "),
+    "| 2036-2100:", round(ipost, 4), "\n")
 
 adj_by_year <- r$adj
 
@@ -319,7 +326,7 @@ cat("2026 flows (entitled basis) vs 2025 actuals (6.F2, current pay): deaths", r
 dir.create("outputs", showWarnings = FALSE)
 write.csv(checks, "outputs/di_projection_checks.csv", row.names = FALSE)
 saveRDS(list(flows = flows, stock_age = stock_age, age_flows = age_flows, incidence_factor = ifac,
-             death_factor = dfac, death_extra_improvement = g,
+             death_factor = dfac, death_extra_improvement = g, incidence_factor_post2035 = ipost,
              recovery_factor = list(y2025 = rfac25, ultimate = rfac_ult),
              checks = checks, state_2100 = state),
         "data/di_projection.rds")

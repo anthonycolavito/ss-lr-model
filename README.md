@@ -41,6 +41,6 @@ Phase 0 (data and parameters) is done. Run in order:
 | `07_insured_calibrate.R` | Scales 06's rates to Supplement 4.C2 (2016–2025) and the TR's 2100 targets; reports every factor | TR fully insured at 62 (2100) and disability insured at 50 (2100) exactly; 2025 values as checks |
 | `08_di_inputs.R` | Disabled-worker inputs: Study 130 death and recovery tables and 2001–24 history, Actuarial Note 2026.6, Supplement 2026 stock and awards, TR V.C5 | Study 130 worked example; note's Table A probabilities; December 2025 stock vs V.C5 |
 | `09_di_start_stock.R` | Disabled workers at December 2025 by sex, entitlement age and duration: prior from past awards and Study 130 survival, raked to Supplement 5.A1.2 and 5.D1; IBNR factors from two 5.D1 vintages | Both margins matched exactly; survival model reproduces mature cohorts within 1–2% |
-| `10_di_projection.R` | Disabled workers 2026–2100 by sex, entitlement age, duration and age (work in progress: IBNR basis open, F-09) | TR V.C5; memo death, recovery and prevalence rates |
+| `10_di_projection.R` | Disabled workers 2026–2100 by sex, entitlement age, duration and age; entitled and current pay (IBNR); incidence, deaths, recoveries, conversions | TR V.C5 2026–2035 exactly, 2036–2100 within ±2%; memo death (26.3 → 12.5) and recovery (18.7 → 11.1) rates; V.C5 gross prevalence |
 
 Phase 1 (insured status) is being revised to follow OCACT's method more closely; the disability-rolls adjustment waits for Phase 2. Next: Phase 2, disabled workers. Planning and the full checklist live in the build guide (Claude doc).
