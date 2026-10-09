@@ -93,7 +93,7 @@ shape <- cp25 |> filter(age >= 60) |> mutate(g = ifelse(age <= 64, "a60_64", "a6
 di_hist <- di$hist_inforce |> filter(sex != "T", year >= 2007) |> mutate(sex = as.character(sex)) |>
   select(year, sex, a60_64, a65_66) |> pivot_longer(c(a60_64, a65_66), names_to = "g", values_to = "n") |>
   inner_join(shape, by = c("sex", "g"), relationship = "many-to-many") |>
-  mutate(w = u * f_on(year, age)) |> group_by(year, sex, g) |> mutate(w = w / sum(w)) |> ungroup() |>
+  mutate(w = u * f_on(year, age)) |> group_by(year, sex, g) |> mutate(w = if (sum(w) > 0) w / sum(w) else 0 * w) |> ungroup() |>
   transmute(year, sex, age, dib = n * w)
 dib <- bind_rows(di_hist, cp25 |> transmute(year = 2025L, sex, age, dib = n),
                  dip$stock_age |> transmute(year, sex = as.character(sex), age = a, dib = cp)) |>

@@ -61,7 +61,7 @@ up to 1.5%.
 Phases 0–6 are built (scripts 01–30); the comprehensive review's fixes (F-34)
 are in and rebuilt end to end through run_all.R (F-35). Phase 7 (reforms) is next. Phases 0–3 (scripts 01–15): Every beneficiary category is projected
 2025–2100 and matches TR V.C4 and V.C5: disabled workers 2026–2035 exactly and
-within ±2% after; retired workers out of sample within −0.5% to +2.8%
+within ±2% after; retired workers out of sample within −0.9% to +2.8%
 (short-range factor on ages 65+, RW-11);
 widow(er)s and all dependents at V.C4/V.C5 levels, split by OCACT-structured
 linkages (model-alone gaps in F-13, F-15, F-16).
@@ -138,7 +138,7 @@ The Supplement's retired and award averages include the dual-entitlement excess
 award targets (19) and the women's post-entitlement factors (24), and projected
 with OCACT's regressions (28; DX-04 to DX-06). Dependents and survivors (27;
 AX-01 to AX-03), annual benefits by fund (29; AB-01 to AB-03): OASI benefits
-within −1.6% to +1.8% of the TR through 2090, +3.0% in 2100 (F-35). Phase 5 was
+within −2.0% to +1.8% of the TR through 2090, +3.0% in 2100 (F-35). Phase 5 was
 reviewed independently (F-32); the excess share s in R/dual_excess.R is a share
 of the published combined average, so worker benefit = (1 - s) x published. Open: DI
 +4% in 2090-2100, mostly DI counts vs V.C5 (DP-08 fits only the average).

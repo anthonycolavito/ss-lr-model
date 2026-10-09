@@ -84,7 +84,7 @@ t6 <- di$hist_inforce |> filter(sex != "T") |> mutate(sex = factor(as.character(
 source("R/di_remain.R"); pcoh <- readRDS("data/params_by_cohort.rds")
 din_hist <- t6 |> inner_join(shape, by = c("sex", "g"), relationship = "many-to-many") |>
   mutate(w = w * di_remain(year, age, pcoh) / pmax(di_remain(2025L, age, pcoh), 1e-9)) |>
-  group_by(year, sex, g) |> mutate(w = w / sum(w)) |> ungroup() |>
+  group_by(year, sex, g) |> mutate(w = if (sum(w) > 0) w / sum(w) else 0 * w) |> ungroup() |>
   transmute(year, sex, age, dinadd = n * w * share_d4)
 din_2025 <- st25 |> filter(duration >= 4) |> group_by(sex, age = attained_age) |>
   summarise(dinadd = sum(current_pay), .groups = "drop") |> mutate(year = 2025L)
