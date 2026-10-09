@@ -79,6 +79,13 @@ Outputs Phase 4 builds on:
 
 ## Comparison with OCACT
 
+Two Claude docs (October 9, 2026): "Model vs Trustees 2026: Comparison of Outputs"
+(https://claude.ai/code/artifact/f3395695-a78b-4573-a008-f29c00a83a19) and the short
+model documentation, "ss-lr-model: Model Documentation"
+(https://claude.ai/code/artifact/55719bfb-e30c-4732-94a1-7d7dcef506c9). Update both
+after the F-34 fixes and rebuild.
+
+
 `scripts/16_compare_tr.R` sets every projection against the TR and Supplement
 4.C2 (`outputs/tr_comparison.csv`); the dashboard "Model vs Trustees 2026"
 (https://claude.ai/artifact/LGUWYB7UszUQkyxoYDR36K) shows it. Rerun 16 and
