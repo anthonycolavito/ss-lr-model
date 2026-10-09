@@ -210,12 +210,15 @@ age_params <- function(slct, srch, slct_mid = max(1, slct - 1), young_srch = 3) 
 
 #' Grade women's SLCT/SRCH toward men's as women's covered-worker rate
 #' approaches men's (methodology 3.1.c, footnote 2): women's own values below
-#' 90% of the men's rate, men's values at or above 100%, linear in between.
+#' 90% of the men's rate, men's values at or above 100%, graded in between.
+#' SRCH is blended on a log scale, the scale it is calibrated on: blended
+#' linearly, women's 1 and men's 30,000 at a 10% weight would give ~3,000,
+#' effectively men's value (see DECISIONS.md, F-04).
 grade_female_params <- function(f_params, m_params, p_f, p_m) {
   w <- pmin(1, pmax(0, (p_f / pmax(p_m, 1e-9) - 0.9) / 0.1))
   w[is.na(w)] <- 0
   list(slct = (1 - w) * f_params$slct + w * m_params$slct,
-       srch = as.integer(round((1 - w) * f_params$srch + w * m_params$srch)))
+       srch = as.integer(round(exp((1 - w) * log(f_params$srch) + w * log(m_params$srch)))))
 }
 
 #' SLCT and SRCH by age from one SRCH value per 4.C2 age group (ages 18+),
