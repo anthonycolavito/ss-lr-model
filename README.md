@@ -62,7 +62,7 @@ Rebuild everything with `Rscript scripts/run_all.R` (about 25 minutes on 2 cores
 | `26_rw_benefits.R` | Retired-worker benefits and PIAs in current pay (age × age at entitlement, conversions), December 2025–2100, net of the dual-entitlement excess | Supplement 5.A1.1 and 5.A3a by age (December 2025, exact with the excess); average PIA vs 5.B7 within 0.6% (check); 5.B4 by entitlement year within −5% to +3% (check) |
 | `27_aux_benefits.R` | Dependents' and survivors' average benefits (linkage × account holder's average PIA or DI benefit), 30 categories | Supplement 5.A1, 5.A1.3, 5.A1.5–5.A1.7 (December 2025, by construction) |
 | `28_dual_entitlement.R` | Dually entitled counts and excess amounts (OCACT's regressions) | Supplement 5.G2, 5.G3, 5.A14, 5.A15 (2025, by construction) |
-| `29_annual_benefits.R` | Annual scheduled benefits by trust fund, 2026–2100 | TR IV.A1/IV.A2 to 2035 and IV.B1 cost rates after: OASDI benefit rate within ±1.3% to 2080, +3.4% in 2100 (F-31) |
+| `29_annual_benefits.R` | Annual scheduled benefits by trust fund, 2026–2100 | TR IV.A1/IV.A2 to 2035 and IV.B1 cost rates after: OASDI benefit rate within ±1.6% to 2090, +2.6% in 2100 (F-31) |
 
 ## Setup
 

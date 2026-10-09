@@ -9,13 +9,13 @@
 #            and survivors (27);  DI = disabled workers (25) + DI dependents (27)
 #   Annual = sum over months i = 0..11 of (12 - i)/12 x B(t-1) + i/12 x B(t)/(1 + COLA_t)
 #          = 6.5 B(t-1) + 5.5 B(t) / (1 + COLA_t)                                   (OCACT's formula)
-#   x (1 + L_fund): retroactive payments and other amounts outside the December levels, a loading by
-#   fund fitted to 2024 actual benefits (IV.A1/IV.A2) with 5.A4's December 2023 and 2024 totals
+#   x (1 + L_fund x the ratio of new entitlements to the stock relative to 2026): retroactive payments
+#   and other amounts outside the December levels, a loading by fund fitted to 2024 actual benefits (IV.A1/IV.A2) with 5.A4's December 2023 and 2024 totals
 #   (2025 is distorted by the Social Security Fairness Act's retroactive payments) (AB-02)
 #   + lump-sum death payments (23), OASI
 # Check: scheduled benefits 2026-2035 (IV.A1, IV.A2) and, after 2035, benefits implied by the cost
-# rates (IV.B1 x taxable payroll, VI.G1) less administration and railroad interchange at their 2035
-# share of cost (AB-03).
+# rates (IV.B1 x taxable payroll, VI.G1) less administration (OCACT's formula from 2035) and railroad
+# interchange (2035 share of cost) (AB-03).
 #
 # Input:  data/rw_benefits.rds, di_benefits.rds, aux_benefits.rds, dual_entitlement.rds, lump_sum.rds,
 #         params_by_year.rds; Supplement 2026 5.A4; TRTables_TR2026 IV.A1, IV.A2; single-year IV.B1, VI.G1
@@ -56,18 +56,35 @@ cat("2025 with the same method, $ billions:", round(l25, 1), "vs actual", ivA$be
 
 # ---- Annual benefits -------------------------------------------------------------------------------------------
 ls <- readRDS("data/lump_sum.rds")$lump_sum |> transmute(year, lsdp = amount)
+# The loading is mostly retroactive payments to new entitlements, so it moves with new entitlements
+# relative to the stock (AB-02): DI from scripts/10, OASI retired workers from scripts/26's diagonal;
+# the ratio is set to 1 in 2026, the first projected year (DI: 0.135 falling to 0.098 by 2100)
+dent <- readRDS("data/di_projection.rds")$entitlements_by_age |> group_by(year) |> summarise(e = sum(n)) |>
+  inner_join(readRDS("data/di_benefits.rds")$totals |> group_by(year) |> summarise(s = sum(cp)) |> mutate(year = year + 1L), by = "year") |> mutate(fund = "DI")
+rcel <- readRDS("data/rw_benefits.rds")$cells
+oent <- rcel |> filter(col != "conv") |> filter(age == suppressWarnings(as.integer(col))) |> group_by(year) |> summarise(e = sum(n)) |>
+  inner_join(rcel |> group_by(year) |> summarise(s = sum(n)) |> mutate(year = year + 1L), by = "year") |> mutate(fund = "OASI")
+lrel <- bind_rows(dent, oent) |> mutate(r = e / s) |> group_by(fund) |> mutate(lrel = r / r[year == 2026]) |> ungroup() |> select(year, fund, lrel)
 annual <- B |> arrange(fund, year) |> group_by(fund) |> mutate(B0 = lag(B)) |> ungroup() |> filter(year >= 2026) |>
-  mutate(annual = (6.5 * B0 + 5.5 * B / (1 + cola[as.character(year)])) * (1 + L[fund])) |>
+  left_join(lrel, by = c("year", "fund")) |>
+  mutate(annual = (6.5 * B0 + 5.5 * B / (1 + cola[as.character(year)])) * (1 + L[fund] * coalesce(lrel, 1))) |>
   left_join(ls, by = "year") |> mutate(annual = annual + ifelse(fund == "OASI", coalesce(lsdp, 0), 0)) |> select(year, fund, annual)
 
 # ---- Trustees: IV.A to 2035, cost rates after ------------------------------------------------------------------
 source("R/read_tr.R")
 ib1 <- read_tr_single_year("IV.B1", c("oasi_inc", "oasi_cost", "oasi_bal", "di_inc", "di_cost", "di_bal", "oasdi_inc", "oasdi_cost", "oasdi_bal"))
 g1 <- read_tr_single_year("VI.G1", c("cpi", "awi", "payroll", "gdp", "ratio", "interest"))
-sh35 <- ivA |> filter(year == 2035) |> transmute(fund, ben_share = ben / cost)
+# After 2035 OCACT's administrative costs grow with beneficiaries x the AWI x (1 - productivity growth,
+# 1.63% ultimate); railroad interchange is held at its 2035 share of cost (AB-03)
+vc4 <- read_tr_single_year("V.C4", c("rw", "spouse", "child", "widow", "mother", "parent", "total"))
+vc5t <- read_tr_single_year("V.C5", c("dw", "spouse", "child", "total", "pg", "pa"))
+bens <- bind_rows(vc4 |> transmute(year, fund = "OASI", nb = total), vc5t |> transmute(year, fund = "DI", nb = total))
+c35 <- ivA |> filter(year == 2035) |> transmute(fund, adm35 = adm, rr_share = coalesce(rr, 0) / cost)
 lr <- ib1 |> select(year, OASI = oasi_cost, DI = di_cost) |> pivot_longer(c(OASI, DI), names_to = "fund", values_to = "cost_rate") |>
-  inner_join(g1 |> select(year, payroll), by = "year") |> left_join(sh35, by = "fund") |>
-  mutate(tr_ben = cost_rate / 100 * payroll * ben_share) |> filter(year > 2035) |> select(year, fund, tr_ben, payroll, cost_rate)
+  inner_join(g1 |> select(year, payroll, awi), by = "year") |> inner_join(bens, by = c("year", "fund")) |> filter(year >= 2035) |>
+  left_join(c35, by = "fund") |> arrange(fund, year) |> group_by(fund) |>
+  mutate(adm = adm35 * (nb / nb[year == 2035]) * (awi / awi[year == 2035]) * (1 - 0.0163)^(year - 2035)) |> ungroup() |>
+  mutate(cost = cost_rate / 100 * payroll, tr_ben = cost - adm - cost * rr_share) |> filter(year > 2035) |> select(year, fund, tr_ben, payroll, cost_rate)
 trb <- bind_rows(ivA |> filter(year >= 2026, year <= 2035) |> transmute(year, fund, tr_ben = ben), lr |> select(year, fund, tr_ben))
 cmp <- annual |> inner_join(trb, by = c("year", "fund")) |> mutate(model = annual / 1e9, gap_pct = 100 * (model / tr_ben - 1)) |>
   left_join(g1 |> select(year, payroll), by = "year") |> mutate(model_rate = 100 * model / payroll)
