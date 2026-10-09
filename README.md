@@ -59,7 +59,10 @@ Rebuild everything with `Rscript scripts/run_all.R` (about 25 minutes on 2 cores
 | `23_lump_sum.R` | Lump-sum death payments, 2024–2100 (equation 3.3.13) | Supplement 6.D9 (2024 fitted, 2025 +7.6%) |
 | `24_post_entitlement.R` | Post-entitlement factors by sex and duration (retired, disabled, conversions), initial to ultimate 2026–2045 | Supplement 5.B4 and 5.D1 by edition, OCACT's window 2014–15 to 2023–24 |
 | `25_di_benefits.R` | Disabled-worker benefits in current pay by cohort, December 2025–2100; conversion benefits | Supplement 5.D1 and 5.A1.2 (December 2025, exact); DI cost-rate trend vs IV.B1 +5% by 2035 (F-27) |
-| `26_rw_benefits.R` | Retired-worker benefits in current pay (age × age at entitlement, conversions), December 2025–2100 | Supplement 5.A1.1 and 5.A3a by age, averages and reduced shares (December 2025, exact); 5.B4 by entitlement year within −5% to +3% (check); OASI cost-rate trend vs IV.B1 (F-29) |
+| `26_rw_benefits.R` | Retired-worker benefits and PIAs in current pay (age × age at entitlement, conversions), December 2025–2100, net of the dual-entitlement excess | Supplement 5.A1.1 and 5.A3a by age (December 2025, exact with the excess); average PIA vs 5.B7 within 0.6% (check); 5.B4 by entitlement year within −5% to +3% (check) |
+| `27_aux_benefits.R` | Dependents' and survivors' average benefits (linkage × account holder's average PIA or DI benefit), 30 categories | Supplement 5.A1, 5.A1.3, 5.A1.5–5.A1.7 (December 2025, by construction) |
+| `28_dual_entitlement.R` | Dually entitled counts and excess amounts (OCACT's regressions) | Supplement 5.G2, 5.G3, 5.A14, 5.A15 (2025, by construction) |
+| `29_annual_benefits.R` | Annual scheduled benefits by trust fund, 2026–2100 | TR IV.A1/IV.A2 to 2035 and IV.B1 cost rates after: OASDI benefit rate within ±1.3% to 2080, +3.4% in 2100 (F-31) |
 
 ## Setup
 

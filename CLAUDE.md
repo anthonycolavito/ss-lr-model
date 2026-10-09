@@ -125,7 +125,14 @@ separate workers' compensation offset (DB-04). Open: F-27 (DI cost trend +5%
 vs the TR by 2035; check once dependents and annualizing are in). Retired-worker
 benefits (26; RB-01 to RB-06): OCACT's age x entitlement-age matrix, started from
 5.A3a and 5.A1.1 by age and reduction status, reduced shares fitted (RB-06, F-28);
-5.B4 as a check (F-29). EA-03/AL-03 handled (RB-02, RB-03).
+5.B4 as a check. EA-03/AL-03 handled (RB-02, RB-03).
+The Supplement's retired and award averages include the dual-entitlement excess
+(R/dual_excess.R, DX-01 to DX-03): it is taken out of the worker matrices, the
+award targets (19) and the women's post-entitlement factors (24), and projected
+with OCACT's regressions (28; DX-04 to DX-06). Dependents and survivors (27;
+AX-01 to AX-03), annual benefits by fund (29; AB-01 to AB-03): OASDI benefits /
+payroll within ±1.3% of the TR through 2080, +3.4% in 2100 (F-31). Open: DI
+after 2060 (+5% to +8%), retroactive payments as a 2024-fitted loading (AB-02).
 
 After Phase 4: Phase 5 (benefits in current pay: starting PIA/MBA matrices,
 roll-forward with COLAs and post-entitlement factors, workers' compensation

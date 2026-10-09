@@ -35,7 +35,7 @@
 # 5. Check: 2025 average award benefit by age vs 6.A4.
 #
 # Input:  data/bepuf_awardees.rds (17), data/paps.rds (18), data/insured_inputs.rds (04),
-#         data/rw_entitlement_age.rds (14), params (03); Supplement 2026 6.A4, 6.B4
+#         data/rw_entitlement_age.rds (14), params (03); Supplement 2026 6.A4, 6.B4; R/dual_excess.R (DX-03)
 # Output: data/paps_retired.rds, outputs/paps_retired_checks.csv
 
 suppressMessages({library(data.table); library(dplyr); library(tidyr); library(ranypia)})
@@ -158,6 +158,15 @@ conv_dist <- conv_bins[, .N, by = .(SEX, bin)][, share := N / sum(N), by = SEX]
 # average award benefit by age (6.A4) - the last because the shuttle alone moves a random slice of
 # each sample age, while the 2016-2025 drop in claiming at 62 came mostly from higher earners (PS-03)
 a6 <- data.table(t = 62:70, M = num(a4[rows, 8]), F = num(a4[rows, 10]))
+# 6.A4's averages are combined benefits: they include the dual-entitlement excess of awardees also
+# entitled as spouses or widow(er)s (women's award benefit/PIA, 0.965, is above men's, 0.951, in 6.A2).
+# The worker benefit is the target: 6.A4 x (1 - excess share at that age), the share from the December
+# 2025 current-pay data (R/dual_excess.R; women 6.5-8.4%, men 0.2-0.3%) (DX-03)
+source("R/dual_excess.R")
+xs <- as.data.table(excess_by_age())[age %in% 62:70, .(t = age, SEX = sex, share)]
+a6_combined <- copy(a6)
+a6 <- dcast(melt(a6, id.vars = "t", variable.name = "SEX", value.name = "v")[, SEX := as.character(SEX)][xs, on = c("t", "SEX")][, v := v * (1 - share)],
+            t ~ SEX, value.var = "v")[, .(t, M, F)]
 tb_all <- rbindlist(lapply(c("M", "F"), function(sx) rbindlist(lapply(c(TRUE, FALSE), function(rd) {
   tb <- tgt[SEX == sx & red == rd]
   if (!rd) { cd <- conv_dist[SEX == sx][tb[, .(bin)], on = "bin"][is.na(share), share := 0]
@@ -183,7 +192,7 @@ for (it in 1:60) {
     cp[SEX == sx, w := w * (D / cur$c)[t - 61]]
   }
 }
-cat("\n2025 after shuttling and raking: average award benefit by age, model vs 6.A4 (fitted):\n")
+cat("\n2025 after shuttling and raking: average award benefit by age, model vs 6.A4 net of the dual-entitlement excess (fitted):\n")
 chk25 <- melt(a6, id.vars = "t", variable.name = "SEX", value.name = "actual")[cp[, .(model = sum(w * mba25) / sum(w)), by = .(SEX, t)], on = c("t", "SEX")]
 chk25[, gap_pct := round(100 * (model / actual - 1), 2)]
 print(dcast(chk25, t ~ SEX, value.var = "gap_pct"))

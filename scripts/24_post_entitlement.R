@@ -16,6 +16,7 @@
 #   retired workers  Table 5.B4, durations 0-12+ (12+ pooled, weighted by the earlier December's count)
 #   disabled workers Table 5.D1, durations 0-9+
 #   DI conversions   no public table; the retired-worker factors are used (PF-03)
+#   retired ratios net of the growth of the dual-entitlement excess along the cohort (DX-02)
 #
 # Composition by age at entitlement, which the model tracks itself, is divided out (PF-02).
 # Initial factors = average of the latest 3 pairs; ultimate = average of the latest 10 pairs,
@@ -24,7 +25,7 @@
 #
 # Input:  data-raw/supplement/5b_vintages/5b_2014-2024.xlsx, supplement25_all.xlsx (December
 #         2024), 2026/5b.xlsx; 5.D1 from 5d1_vintages, supplement25_all.xlsx, 2026/5d.xlsx;
-#         data/params_by_year.rds, award_levels.rds (22), di_projection.rds (10), rw_entitlement_age.rds (14)
+#         data/params_by_year.rds, R/dual_excess.R (Supplement 5.A14, 5.A15, 5.G3), award_levels.rds (22), di_projection.rds (10), rw_entitlement_age.rds (14)
 # Output: data/post_entitlement.rds
 
 suppressMessages({library(dplyr); library(tidyr)})
@@ -57,14 +58,30 @@ d1 <- bind_rows(
   filter(!before) |> transmute(dec, e = ent_year, sex = as.character(sex), n = number, mba)
 
 # ---- Consecutive-December ratios ------------------------------------------------------------------------------
-ratios <- function(x, top) {
-  x |> inner_join(x |> transmute(dec = dec + 1L, e, sex, n0 = n, mba0 = mba), by = c("dec", "e", "sex")) |>
+# Dual-entitlement excess (DX-01, DX-02): the retired averages in 5.B4 include the excess of spouse or
+# widow(er) benefits for dually entitled workers, which grows with age as husbands die (women: 6% of the
+# average at 67, 31% at 90). OCACT projects the excess separately, so its growth along each cohort is
+# taken out: k = (1 + s(a - 1)) / (1 + s(a)), s = excess share by age (R/dual_excess.R, December
+# 2025), averaged over the ages at entitlement (2025 entitlements by age, scripts/14) at each duration.
+source("R/dual_excess.R")
+xs <- excess_by_age() |> select(sex, age, share)
+ent <- readRDS("data/rw_entitlement_age.rds")$entitlements |> filter(year == 2025) |> transmute(sex = as.character(sex), ae = as.integer(ae), w = n)
+xk <- ent |> crossing(dprev = 0:60) |> mutate(a0 = pmin(ae + dprev, 100L), a1 = pmin(ae + dprev + 1L, 100L)) |>
+  left_join(xs |> rename(a0 = age, s0 = share), by = c("sex", "a0")) |> left_join(xs |> rename(a1 = age, s1 = share), by = c("sex", "a1")) |>
+  group_by(sex, dprev) |> summarise(k = sum(w * (1 + s0)) / sum(w * (1 + s1)), .groups = "drop")
+ratios <- function(x, top, corr = NULL) {
+  r <- x |> inner_join(x |> transmute(dec = dec + 1L, e, sex, n0 = n, mba0 = mba), by = c("dec", "e", "sex")) |>
     inner_join(py |> transmute(dec = year, cola), by = "dec") |>
-    mutate(dur = pmin(dec - 1L - e, top)) |> filter(dur >= 0) |>
-    group_by(dec, sex, dur) |>
-    summarise(pe = sum(n0 * mba / mba0) / sum(n0) / (1 + first(cola) / 100), surv = sum(n) / sum(n0), .groups = "drop")
+    mutate(dprev = dec - 1L - e, dur = pmin(dprev, top)) |> filter(dur >= 0)
+  r <- if (is.null(corr)) mutate(r, k = 1) else left_join(r, corr, by = c("sex", "dprev")) |> mutate(k = coalesce(k, 1))
+  r |> group_by(dec, sex, dur) |>
+    summarise(pe_obs = sum(n0 * mba / mba0) / sum(n0) / (1 + first(cola) / 100),
+              pe = sum(n0 * mba / mba0 * k) / sum(n0) / (1 + first(cola) / 100), surv = sum(n) / sum(n0), .groups = "drop")
 }
-hist <- bind_rows(ratios(b4, 12L) |> mutate(type = "retired"), ratios(d1, 9L) |> mutate(type = "disabled"))
+hist <- bind_rows(ratios(b4, 12L, xk) |> mutate(type = "retired"), ratios(d1, 9L) |> mutate(type = "disabled"))
+cat("Retired: observed and net of the growth in dual-entitlement excess, 10-pair averages:\n")
+print(as.data.frame(hist |> filter(type == "retired", dec %in% win, dur %in% c(0, 1, 3, 6, 9, 12)) |> group_by(sex, dur) |>
+  summarise(observed = round(mean(pe_obs), 4), net_of_excess = round(mean(pe), 4), .groups = "drop")))
 cat("Pairs available (December of the later edition):\n"); print(hist |> distinct(type, dec) |> group_by(type) |> summarise(decs = paste(dec, collapse = " ")))
 
 # ---- Composition the model already tracks --------------------------------------------------------------------
