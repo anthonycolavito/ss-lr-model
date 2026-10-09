@@ -51,6 +51,7 @@ Rebuild everything with `Rscript scripts/run_all.R` (about 25 minutes on 2 cores
 | `15_oasi_auxiliaries.R` | Dependents of retired and deceased workers by category, 2025–2100: TR V.C4 totals split by OCACT-structured linkages | December 2025 Supplement counts by category; model alone vs V.C4 (F-16) |
 | `16_compare_tr.R` | Every projection against the 2026 TR (intermediate, low-cost, high-cost) and Supplement 4.C2, tagged input / fitted / set equal / tested: `outputs/tr_comparison.csv` | Shown on the comparison dashboard |
 | `17_bepuf_aime.R` | AIMEs of 587,883 recent new worker beneficiaries from BEPUF 2020 earnings (ranypia); needs the BEPUF files in `data-raw/bepuf/` (not in git) | 2025 award distributions by PIA (Supplement 6.B4, 6.C1) |
+| `18_paps.R` | PAPs by sex and age at entitlement (retired 62–70, disabled 24–66) from BEPUF careers raked to 2025 awards; conversions separated | 2025 award distributions (fitted); average award benefits by age, 6.A4 (not fitted; F-22) |
 
 ## Setup
 

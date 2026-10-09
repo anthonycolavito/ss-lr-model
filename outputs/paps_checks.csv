@@ -1,0 +1,37 @@
+"check","SEX","group","model","actual"
+"retired MBA by age","F","62",1301.03697840931,1275.24
+"retired MBA by age","F","63",1371.57427567942,1441.59
+"retired MBA by age","F","64",1444.70920530754,1537.06
+"retired MBA by age","F","65",1638.01865361832,1809.92
+"retired MBA by age","F","66",2411.29564734688,2211.8
+"retired MBA by age","F","67",2120.28007790156,2313.99
+"retired MBA by age","F","68",2210.45362442354,2564.34
+"retired MBA by age","F","69",2455.60198734707,2793.81
+"retired MBA by age","M","62",1662.49706580666,1567.19
+"retired MBA by age","M","63",1728.28673142024,1775.52
+"retired MBA by age","M","64",1833.8603630396,1924.16
+"retired MBA by age","M","65",2020.51304469523,2253.49
+"retired MBA by age","M","66",2965.59901993605,2750.23
+"retired MBA by age","M","67",2639.69871229108,2885.34
+"retired MBA by age","M","68",2835.69801681249,3212.08
+"retired MBA by age","M","69",3118.36242744915,3529.52
+"disabled benefit by age group","F","(59,64]",1755.78270566016,1794.91
+"disabled benefit by age group","M","(64,66]",2361.06805793835,2364.59
+"disabled benefit by age group","M","(59,64]",2227.65539701033,2259.54
+"disabled benefit by age group","F","(64,66]",1917.29947721585,1920.89
+"disabled benefit by age group","F","(54,59]",1640.98668292515,1652.93
+"disabled benefit by age group","M","(54,59]",2085.19157873263,2097.38
+"disabled benefit by age group","F","(49,54]",1582.33396694387,1591.78
+"disabled benefit by age group","M","(49,54]",1963.52020142699,1974.55
+"disabled benefit by age group","F","(44,49]",1587.43625710247,1584.4
+"disabled benefit by age group","M","(44,49]",1903.24473626818,1888.08
+"disabled benefit by age group","F","(39,44]",1554.43913026283,1515.87
+"disabled benefit by age group","M","(39,44]",1817.21233727417,1733.24
+"disabled benefit by age group","F","(34,39]",1543.27411733129,1433.43
+"disabled benefit by age group","M","(34,39]",1737.50579334154,1573.4
+"disabled benefit by age group","F","(29,34]",1465.88556965442,1344.05
+"disabled benefit by age group","M","(29,34]",1573.77280914199,1412.89
+"disabled benefit by age group","F","(24,29]",1220.8420139545,1246.28
+"disabled benefit by age group","M","(24,29]",1097.34835232695,1253.01
+"disabled benefit by age group","F","(0,24]",1041.59197711411,991.25
+"disabled benefit by age group","M","(0,24]",934.953793100024,983.37
