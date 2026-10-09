@@ -63,6 +63,7 @@ Rebuild everything with `Rscript scripts/run_all.R` (about 25 minutes on 2 cores
 | `27_aux_benefits.R` | Dependents' and survivors' average benefits (linkage × account holder's average PIA or DI benefit), 30 categories | Supplement 5.A1, 5.A1.3, 5.A1.5–5.A1.7 (December 2025, by construction) |
 | `28_dual_entitlement.R` | Dually entitled counts and excess amounts (OCACT's regressions) | Supplement 5.G2, 5.G3, 5.A14, 5.A15 (2025, by construction) |
 | `29_annual_benefits.R` | Annual scheduled benefits by trust fund, 2026–2100 | TR IV.A1/IV.A2 to 2035 and IV.B1 cost rates after: OASDI benefit rate within ±1.6% to 2090, +2.5% in 2100 (F-31) |
+| `30_trust_fund.R` | Trust fund operations by fund, annual income and cost rates, trust fund ratios, summarized rates, actuarial balance, unfunded obligation, depletion | TR IV.B1, IV.B5, IV.B6, IV.B8: 75-year actuarial balance −4.41% vs −4.42%; depletion OASI 2032, OASDI 2034 (F-33) |
 
 ## Setup
 

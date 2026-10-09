@@ -139,6 +139,12 @@ P-11: Anthony wants the model built ground-up on OCACT's methods and assumptions
 never calibrated in dollars; whether to scale worker counts to V.C4/V.C5 after
 the fact is deferred until Phase 6 is done.
 
+Phase 6 built (30; TF-01 to TF-07): trust fund operations and summary measures,
+nothing fitted to cost or income. 75-year actuarial balance −4.41% of payroll vs
+the Trustees' −4.42%; OASI 2032 and OASDI 2034 depletion as the TR (F-33). The
+75-year match partly reflects offsetting OASI/DI benefit gaps (F-31). Next:
+Anthony's P-11 revisit, then Phase 7 (reforms; the earnings test in ranypia then).
+
 After Phase 4: Phase 5 (benefits in current pay: starting PIA/MBA matrices,
 roll-forward with COLAs and post-entitlement factors, workers' compensation
 offset, auxiliary averages, dual entitlement, annualizing), Phase 6 (trust fund
