@@ -58,10 +58,10 @@ up to 1.5%.
 
 ## Where things stand (October 9, 2026)
 
-Phases 0–6 are built (scripts 01–30); Phase 7 (reforms) is next, after the fix
-list from the comprehensive review (DECISIONS.md F-34). Phases 0–3 (scripts 01–15): Every beneficiary category is projected
+Phases 0–6 are built (scripts 01–30); the comprehensive review's fixes (F-34)
+are in and rebuilt end to end through run_all.R (F-35). Phase 7 (reforms) is next. Phases 0–3 (scripts 01–15): Every beneficiary category is projected
 2025–2100 and matches TR V.C4 and V.C5: disabled workers 2026–2035 exactly and
-within ±2% after; retired workers out of sample within −1.0% to +2.4%
+within ±2% after; retired workers out of sample within −0.5% to +2.8%
 (short-range factor on ages 65+, RW-11);
 widow(er)s and all dependents at V.C4/V.C5 levels, split by OCACT-structured
 linkages (model-alone gaps in F-13, F-15, F-16).
@@ -72,7 +72,7 @@ Outputs Phase 4 builds on:
 | --- | --- |
 | `data/rw_entitlement_age.rds` | `rw_ae`: retired workers by year, sex, attained age, age at entitlement (62–70) and class (`retired`, or `converted` DI at NRA); `entitlements`: new entitlements by year, sex, age |
 | `data/retired_workers.rds` | prevalence, exposure, converted DI stock, short-range factors |
-| `data/di_projection.rds` | DI flows by year; stock by sex and age (`n`, current pay `cp`, on rolls 4+ years `n_d4`); deaths and recoveries by age; conversions by age; the full sex × entitlement age × duration × age state in 2100 only |
+| `data/di_projection.rds` | DI flows by year; stock by sex and age (`n`, current pay `cp`, on rolls 4+ years `n_dinadd`); deaths and recoveries by age; conversions by age; the full sex × entitlement age × duration × age state in 2100 only |
 | `data/di_stock_2025.rds` | DI stock December 2025 by sex, entitlement age, entitlement year, duration, attained age |
 | `data/aged_widows.rds`, `data/di_auxiliaries.rds`, `data/oasi_auxiliaries.rds` | widow(er)s and dependents by category, with model shares and published levels |
 | `data/params_by_year.rds`, `data/params_by_cohort.rds` | AWI, COLA, taxable max, bend points, QC; NRA, DRC and reduction by cohort (from ranypia) |
@@ -82,8 +82,8 @@ Outputs Phase 4 builds on:
 Two Claude docs (October 9, 2026): "Model vs Trustees 2026: Comparison of Outputs"
 (https://claude.ai/code/artifact/f3395695-a78b-4573-a008-f29c00a83a19) and the short
 model documentation, "ss-lr-model: Model Documentation"
-(https://claude.ai/code/artifact/55719bfb-e30c-4732-94a1-7d7dcef506c9). Update both
-after the F-34 fixes and rebuild.
+(https://claude.ai/code/artifact/55719bfb-e30c-4732-94a1-7d7dcef506c9). Both were
+written before the F-34 fixes; update them with F-35's results.
 
 
 `scripts/16_compare_tr.R` sets every projection against the TR and Supplement
@@ -137,8 +137,8 @@ The Supplement's retired and award averages include the dual-entitlement excess
 (R/dual_excess.R, DX-01 to DX-03): it is taken out of the worker matrices, the
 award targets (19) and the women's post-entitlement factors (24), and projected
 with OCACT's regressions (28; DX-04 to DX-06). Dependents and survivors (27;
-AX-01 to AX-03), annual benefits by fund (29; AB-01 to AB-03): OASDI benefits /
-payroll within ±1.6% of the TR through 2090, +2.5% in 2100 (F-31). Phase 5 was
+AX-01 to AX-03), annual benefits by fund (29; AB-01 to AB-03): OASI benefits
+within −1.6% to +1.8% of the TR through 2090, +3.0% in 2100 (F-35). Phase 5 was
 reviewed independently (F-32); the excess share s in R/dual_excess.R is a share
 of the published combined average, so worker benefit = (1 - s) x published. Open: DI
 +4% in 2090-2100, mostly DI counts vs V.C5 (DP-08 fits only the average).
@@ -147,13 +147,16 @@ never calibrated in dollars; whether to scale worker counts to V.C4/V.C5 after
 the fact is deferred until Phase 6 is done.
 
 Phase 6 built (30; TF-01 to TF-07): trust fund operations and summary measures,
-nothing fitted to cost or income. 75-year actuarial balance −4.41% of payroll vs
-the Trustees' −4.42%; OASI 2032 and OASDI 2034 depletion as the TR (F-33). The
+nothing fitted to cost or income. 75-year actuarial balance −4.45% of payroll vs
+the Trustees' −4.42%; OASI 2032 and OASDI 2034 depletion as the TR (F-35). The
 75-year match partly reflects offsetting OASI/DI benefit gaps (F-31). Next:
 Anthony's P-11 revisit, then Phase 7 (reforms; the earnings test in ranypia then).
 
-Before Phase 7: fix F-34's list (computation years, December-rate award tables,
-the DI 65-66 history split and conversions in 13, the age-66 claim split in
-19/22, 21's random draws, the insured-simulation bugs), then rebuild from 06
-with run_all.R (Phases 4-6 haven't yet run end to end through run_all.R).
+F-34's fixes are done (F-35). Two reviewer suggestions were checked against the
+methodology and rejected: DINADD stays at 4+ years (footnote 3), and widow(er)s stay
+subtracted from retired-worker exposure at every age (equation 3.3.2); AW-04's
+insured split past 70 is the open item there. Still open from the review: shuttling
+uses economy-wide covered rates, memo 2025 DI rates fitted as 2026, select DI
+timing, July vs December population for covered rates, the 2027 income dip,
+lump sums for deceased DI workers (immaterial), one-year DI award eligibility.
 Then Phase 7 (reforms; ranypia's earnings test).

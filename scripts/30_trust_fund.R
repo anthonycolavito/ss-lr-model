@@ -15,8 +15,9 @@
 #                    (1 - 1.63% productivity), beneficiaries from this model (TF-03)
 #   RR             = the Trustees' 2026-2035; after, held at 2035's ratio to OASI benefits (TF-04)
 #   INT            = yield x average assets; average assets = assets(BOY) + .518 CONTRIB + .625 TAXBEN
-#                    - .5 BEN - .583 RR - .5 ADM; yield from VI.G1's compound effective interest
-#                    factor (TF-05); assets(1 Jan 2026) = the Trustees' end of 2025
+#                    - .5 BEN - .583 RR - .5 ADM; yield 2026-2035 by fund as implied by IV.A, otherwise
+#                    from VI.G1's compound effective interest factor (TF-05); assets(1 Jan 2026) = the
+#                    Trustees' end of 2025
 #   Summarized rates (4.3.12-13), actuarial balance (4.3.10), unfunded obligation (4.3.11), annual
 #   rates and trust fund ratios (4.3.7-9) as printed; discounting with the same yields; exposures as
 #   above (benefits 0.5, TF-06); target fund = next year's cost (2101 extrapolated from 2099-2100).
@@ -68,6 +69,17 @@ lag <- (c35 * 1e9 - sum(rate) * pay[["2034"]]) / (sum(rate) * pay[["2035"]] - su
 cat("Collection lag fitted to the Trustees' 2035 contributions:", round(lag, 4), "\n")
 rtb_ult <- c(OASI = 0.0570, DI = 0.0190); P <- 0.99
 
+# Fund-specific yields 2026-2035 implied by IV.A (TF-05, F-34): Trustees' interest / their average
+# assets with the same exposures, while their average assets exceed 10% of cost; else VI.G1's yield
+yf <- ivA |> filter(year >= 2026, year <= 2035) |>
+  mutate(boy = ivA$assets[match(paste(fund, year - 1), paste(ivA$fund, ivA$year))],
+         avg = boy + 0.518 * contrib + 0.625 * taxben - 0.5 * ben - 0.583 * rr - 0.5 * adm,
+         y_tr = ifelse(avg > 0.1 * cost, interest / avg, NA_real_))
+yield_f <- function(f, t) { v <- yf$y_tr[yf$fund == f & yf$year == t]; if (length(v) && !is.na(v)) v else y[[as.character(t)]] }
+cat("Yields 2026-2035, VI.G1 combined vs implied by IV.A by fund (%):\n")
+print(as.data.frame(yf |> select(fund, year, y_tr) |> pivot_wider(names_from = fund, values_from = y_tr) |>
+  mutate(vi_g1 = y[as.character(year)]) |> mutate(across(-year, ~ round(100 * .x, 2)))))
+
 run_fund <- function(f) {
   out <- list(); assets <- sr(f, 2025, "assets") * 1e9
   rtb35 <- sr(f, 2035, "taxben") / sr(f, 2035, "ben")
@@ -84,7 +96,7 @@ run_fund <- function(f) {
       rr <- if (f == "OASI") B * sr("OASI", 2035, "rr") / sr("OASI", 2035, "ben") else 0
     }
     avg <- assets + 0.518 * contrib + 0.625 * taxben - 0.5 * B - 0.583 * rr - 0.5 * adm
-    int <- y[[tc]] * avg
+    int <- yield_f(f, t) * avg
     end <- assets + contrib + taxben + int - B - rr - adm
     out[[length(out) + 1]] <- tibble(fund = f, year = t, boy = assets, contrib, taxben, int, ben = B, rr, adm, cost = B + rr + adm, eoy = end, rtb)
     assets <- end

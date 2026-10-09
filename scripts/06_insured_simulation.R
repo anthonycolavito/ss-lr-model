@@ -83,7 +83,7 @@ med_arr <- list(M = to_arr(inp$median_earnings, "median", "M", ages),
                 F = to_arr(inp$median_earnings, "median", "F", ages))
 qc_by_year <- setNames(inp$qc_amount$qc_amount, inp$qc_amount$year)
 
-cohort_inputs <- function(cohort, sex, k) {
+cohort_inputs <- function(cohort, sex, k, k_m = if (exists("k_men")) k_men else k) {
   yr <- cohort + ages
   ok <- yr %in% yrs_all
   idx <- cbind(match(yr, yrs_all), ages + 1)
@@ -92,7 +92,8 @@ cohort_inputs <- function(cohort, sex, k) {
   Lv <- Pv - Uv
   # Covered workers = p x P = p_leg x (L + k U): the work-authorized rate.
   p_leg <- pmin(0.995, p_all * Pv / (Lv + k * Uv))
-  p_m <- { v <- get(cov_arr$M); Pm <- get(P$M); Um <- get(U$M); pmin(0.995, v * Pm / (Pm - Um + k * Um)) }
+  # men's work-authorized rate, with the men's k (F-34: women's grading had used the women's k)
+  p_m <- { v <- get(cov_arr$M); Pm <- get(P$M); Um <- get(U$M); pmin(0.995, v * Pm / (Pm - Um + k_m * Um)) }
   list(p = p_leg, p_m = p_m,
        qc_ratio = qc_by_year[as.character(yr)] / get(med_arr[[sex]]),
        imm_frac = ifelse(Lv > 0, Ev / Lv, 0))
@@ -101,7 +102,7 @@ cohort_inputs <- function(cohort, sex, k) {
 run_cohorts <- function(cohorts, sex, N, m_params, f_params = NULL, k,
                         immigrants = TRUE) {
   bind_rows(lapply(cohorts, function(c) {
-    x <- cohort_inputs(c, sex, if (immigrants) k else 0)
+    x <- cohort_inputs(c, sex, if (immigrants) k else 0, if (immigrants) k_by_sex[["M"]] else 0)
     pa <- if (sex == "M") m_params else grade_female_params(f_params, m_params, x$p, x$p_m)
     res <- simulate_cohort_ocact(c, x$p, x$qc_ratio, inp$frac_points, inp$frac_low_power,
                                  pa$slct, pa$srch,
@@ -231,7 +232,7 @@ age62_check <- function(sex, k, slct_vec, m_params = NULL, N = 10000) {
 
 calib_file <- "data/insured_calibration.rds"
 inputs_newer <- file.exists(calib_file) &&
-  any(file.mtime(c("data/insured_inputs.rds", "data/immigration_status.rds",
+  any(file.mtime(c("data/insured_inputs.rds", "data/immigration_status.rds", "scripts/06_insured_simulation.R",
                    "R/insured_sim.R", "src/insured_select.cpp")) > file.mtime(calib_file))
 k_grid <- c(0, 1/3, 2/3, 1)
 
@@ -247,6 +248,7 @@ if (file.exists(calib_file) && !inputs_newer) {
   sse_m <- sapply(fits_m, function(f) sum(f$age62$gap^2))
   best_m <- fits_m[[which.min(sse_m)]]
   m_params <- group_params(best_m$slct)
+  k_men <- best_m$k
   fits_f <- parallel::mclapply(k_grid, mc.cores = n_cores, FUN = function(k) {
     sl <- calibrate_sex("F", k, m_params)
     list(k = k, slct = sl, age62 = age62_check("F", k, sl, m_params))
@@ -269,7 +271,7 @@ show_fits <- function(fits, sex) {
 cat("\nSRCH by age group (fitted to 4.C2; SLCT 4) and gap to TR at age 62, for each k:\n")
 print(bind_rows(show_fits(cal$fits_m, "M"), show_fits(cal$fits_f, "F")), width = 250)
 
-k_by_sex <- c(M = cal$best_m$k, F = cal$best_f$k)
+k_by_sex <- c(M = cal$best_m$k, F = cal$best_f$k); k_men <- cal$best_m$k
 m_params <- group_params(cal$best_m$slct)
 f_params <- group_params(cal$best_f$slct)
 cat("\nChosen k: men", round(k_by_sex["M"], 2), "| women", round(k_by_sex["F"], 2), "\n")

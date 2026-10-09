@@ -19,7 +19,7 @@
 #     age 100 = weighted mean of the 99 and 100 cells moved forward (weights: last year's counts).
 #   New entitlements: mba(t, ae, ae) = award(t, ae) x k0(sex) x (1 + COLA_t), award at December age ae
 #     = mean of the awards at exact ages ae - 1 and ae (62: the award at 62; RB-02); k0 = 5.B4's
-#     December 2025 average for the 2025 cohort / 6.A4's average 2025 award, net of the COLA (RB-03).
+#     December 2025 average for the 2025 cohort / 6.A4's average 2025 award (at December rates; RB-03).
 #   Conversions: new conversions carry their DI cohort benefit (scripts/25), pooled with the
 #     converted workers moved forward from a-1 (conversion PE factors, duration a-1-67).
 #
@@ -150,13 +150,14 @@ cat("Scaling by age and part (reduced / not): range", round(range(parts$beta), 3
 print(as.data.frame(parts |> group_by(sex, ak, part) |> summarise(beta = weighted.mean(beta, n), .groups = "drop") |> filter(ak %in% c(62, 64, 66, 67, 68, 70, 75, 80, 85, 90, 95, 100)) |>
   mutate(beta = round(beta, 3)) |> pivot_wider(names_from = c(sex, part), values_from = beta)))
 # k0 (RB-03): December 2025 average of the 2025 entitlement cohort (5.B4) / average 2025 award (6.A4,
-# retired workers including conversions) x (1 + COLA): the step from award amounts to December current
-# pay, on the actual mix (both include conversions). The DI equivalent (5.D1 / 6.A4) is 1.022 men,
-# 1.016 women, the same as scripts/25's k0.
+# retired workers including conversions). 6.A4's awards are already at December rates (its note a), so
+# no COLA is divided out; the projection applies award (at award-time rates, scripts/22) x (1 + COLA) x k0:
+# the step from award amounts to December current pay, on the actual mix (both include conversions).
+# The DI equivalent (5.D1 / 6.A4) is 1.022 men, 1.016 women, scripts/25's k0.
 a4 <- as.matrix(readxl::read_excel("data-raw/supplement/2026/6a.xlsx", sheet = "6.A4", col_names = FALSE, col_types = "text", .name_repair = "minimal"))
 i4 <- grep("^Total", trimws(a4[, 4]))[1]      # retired workers (the DI total follows)
 k0 <- tibble(sex = c("M", "F"), award = num(a4[i4, c(8, 10)])) |> left_join(b4 |> filter(yk == 2025) |> select(sex, dec = mba), by = "sex") |>
-  transmute(sex, k0 = dec / award / (1 + cola[["2025"]]))
+  transmute(sex, k0 = dec / award)
 cnt <- parts |> filter(part == "red") |> group_by(sex, ak = akp) |> summarise(n_red_model = sum(n), .groups = "drop") |>
   inner_join(a3a |> transmute(sex, ak = lo, n_red_pub = n), by = c("sex", "ak"))
 s25 <- parts |> group_by(year, sex, age, ae, class, col, y, yk, ak) |>
@@ -183,7 +184,7 @@ print(as.data.frame(cnt |> left_join(a11 |> transmute(sex, ak = lo, n_all = n), 
 
 coh25 <- s25 |> transmute(year = 2025L, sex, age, col, n = number, mba, pia)
 dia <- k0
-cat("\nk0 (December 2025 new entitlements / their award level, net of the COLA):\n"); print(dia)
+cat("\nk0 (December 2025 new entitlements / their award level at December rates):\n"); print(dia)
 
 
 # ---- Roll forward ----------------------------------------------------------------------------------------------

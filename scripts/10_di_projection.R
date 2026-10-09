@@ -272,7 +272,7 @@ run_projection <- function(dfac, rfac25, rfac_ult, g, ipost = 1, years = 2026:21
     ent_out[[length(ent_out) + 1]] <- res$ent_detail |> mutate(year = t)
     convd_out[[length(convd_out) + 1]] <- res$conv_detail |> mutate(year = t)
     stock_out[[length(stock_out) + 1]] <- state |> mutate(cp = n * ib) |> group_by(sex, a) |>
-      summarise(n_d4 = sum(n[d >= 4]), cp = sum(cp), n = sum(n), .groups = "drop") |> mutate(year = t)
+      summarise(n_dinadd = sum(n[d >= 4]), cp = sum(cp), n = sum(n), .groups = "drop") |> mutate(year = t)
   }
   af <- bind_rows(age_out)
   list(flows = bind_rows(flows), stock_age = bind_rows(stock_out), age_flows = af, conv_age = bind_rows(conv_out),

@@ -19,6 +19,8 @@
 // SLCT may be fractional: each pick uses floor(SLCT) or floor(SLCT) + 1, the
 // latter with probability equal to the fractional part. That lets calibration
 // move SLCT smoothly instead of in whole years.
+// Records with a negative zero_run (this year's new immigrants) are never chosen (F-34: they could be
+// chosen as the closest match, or, if every examined record was one, the index -1 was written).
 // Returns a logical vector: TRUE = not a covered worker this year.
 
 #include <Rcpp.h>
@@ -42,13 +44,14 @@ LogicalVector select_noncovered(IntegerVector zero_run, int n_target, double slc
     if (R::runif(0.0, 1.0) < slct - slct_i) ++slct_i;
     for (int step = 0; step < n; ++step) {
       int k = (i + step) % n;
-      if (chosen[k]) continue;
+      if (chosen[k] || zero_run[k] < 0) continue;
       ++examined;
       if (zero_run[k] >= slct_i) { pick = k; break; }
       if (zero_run[k] > best_run) { best_run = zero_run[k]; best = k; }
       if (examined >= srch) { pick = best; break; }
     }
     if (pick < 0) pick = best;          // fewer unchosen records than SRCH
+    if (pick < 0) break;                // no record left to choose
     chosen[pick] = true;
     ++n_chosen;
   }

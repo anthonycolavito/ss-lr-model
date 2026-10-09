@@ -14,10 +14,10 @@
 #         (G = average taxable earnings / AWI, scripts/20)
 #   covered-worker rates: moving from the 2025 cohort to cohort c, at each age
 #         years with earnings are added (if the economy-wide covered-worker rate
-#         of year c + a is higher than that of 2025's cohort) or removed (if
-#         lower), with probability f x change / room (OCACT's "potential
-#         difference"; f = 1 for men, 0.57 for women, the share of the change
-#         OCACT attributes to people becoming insured). Added years earn the
+#         of year c + a is higher than 2025's cohort's, adjusted by f x the change
+#         in the age-62 fully insured rate; f = 1 men, 0.57 women, 0 disabled) or
+#         removed (if lower), with OCACT's "potential difference" probabilities
+#         (appendix 4.2-2 examples 1.1-1.3; PE-06). Added years earn the
 #         record's own level (its mean x / G over its years with earnings) x G.
 #         The same random number per record and age is used for every year, so
 #         PAPs move smoothly. Disabled records' last 10 years before entitlement
@@ -72,19 +72,30 @@ for (j in seq_along(ages)) X[ages[j] >= recs$s, j] <- 0
 Gs <- sapply(seq_along(ages), function(j) Garr(recs$SEX, recs$b + ages[j], ages[j]))
 lev <- rowSums(ifelse(X > 0, X / Gs, 0)) / pmax(1, rowSums(X > 0))
 # shuttled retired copies: extra years s..t-1 at the covered rate of the 2025 cohort, at the record's level
+# These years are set at the 2025 cohort's level, so position() must move them by G(target) / G(2025
+# cohort), not by G(target) / G(sample cohort): they are stored as x x Gs / G25, which position()'s
+# x x G(target) / Gs turns into the right shift. They take their own random draws, separate from the
+# covered-worker adjustment's U below (F-34: one draw for both made the adjustment's adds and removals
+# conditional on the shuttle's outcome, and the cohort shift was applied twice).
 U <- matrix(runif(length(X)), nrow(X))
 for (j in seq_along(ages)) {
-  a <- ages[j]; m <- recs$type == "retired" & a >= recs$s & a < recs$t
+  a <- ages[j]; ush <- runif(nrow(X)); m <- recs$type == "retired" & a >= recs$s & a < recs$t
   if (!any(m)) next
   c25 <- 2025L - recs$t[m]
   cr <- CRarr(recs$SEX[m], c25 + a, a)
-  X[m, j] <- ifelse(U[m, j] < cr, pmin(lev[m] * Garr(recs$SEX[m], c25 + a, a), capr[as.character(pmin(c25 + a, 2105))]), 0)
+  g25 <- Garr(recs$SEX[m], c25 + a, a)
+  X[m, j] <- ifelse(ush[m] < cr, pmin(lev[m] * g25, capr[as.character(pmin(c25 + a, 2105))]) * Gs[m, j] / g25, 0)
 }
-cy <- ifelse(recs$type == "retired", 35L, computation_years(recs$b, 1, recs$b + recs$t, birth_day = 1, disabled = TRUE))
+cy <- ifelse(recs$type == "retired", 35L, computation_years(recs$b, 1, recs$b + recs$t, birth_day = 15, disabled = TRUE))
 protect <- sapply(ages, function(a) recs$type == "disabled" & a >= recs$t - 10)   # DI insured-status years
 
+# age-62 fully insured rates (scripts/07) for the base-rate adjustment (PE-06, F-34)
+fi62 <- as.data.table(readRDS("data/insured_rates_calibrated.rds"))[age == 62, .(year, sex = as.character(sex), fully)]
+fi_ratio <- function(T) { f <- fi62[year == T]; b <- fi62[year == 2024L]
+  (f$fully[match(recs$SEX, f$sex)]) / (b$fully[match(recs$SEX, b$sex)]) }
+f_fi <- ifelse(recs$type == "retired", ifelse(recs$SEX == "M", 1, 0.57), 0)
 position <- function(T) {
-  cT <- T - recs$t; c25 <- 2025L - recs$t
+  cT <- T - recs$t; c25 <- 2025L - recs$t; fr <- fi_ratio(T)
   Xc <- X
   for (j in seq_along(ages)) {
     a <- ages[j]; live <- a < recs$t
@@ -93,12 +104,16 @@ position <- function(T) {
     cap <- capr[as.character(pmin(cT + a, 2105))]
     has <- X[, j] > 0
     Xc[has, j] <- pmin(X[has, j] * gt[has] / gb[has], cap[has])
-    # covered-worker rates: cohort cT vs the 2025 cohort at the same age
-    f <- ifelse(recs$SEX == "M", 1, 0.57)
+    # covered-worker rates: cohort cT vs the 2025 cohort at the same age (appendix 4.2-2, examples
+    # 1.1-1.3): the base rate is adjusted by f x the change in the age-62 fully insured rate since the
+    # sample's last earnings year (f = 1 men, 0.57 women; none for disabled workers); then
+    # rising: 1 - sample = (1 - EW_T) / (1 - adj) x (1 - sample_base) -> add with (EW_T - adj) / (1 - adj)
+    # falling: sample = EW_T / adj x sample_base                    -> remove with (adj - EW_T) / adj
     crT <- CRarr(recs$SEX, cT + a, a); cr25 <- CRarr(recs$SEX, c25 + a, a)
-    up <- crT > cr25
-    p_add <- ifelse(up, f * (crT - cr25) / pmax(1e-6, 1 - cr25), 0)
-    p_rem <- ifelse(!up, f * (cr25 - crT) / pmax(1e-6, cr25), 0)
+    adj <- pmin(0.999, cr25 * (1 + (fr - 1) * f_fi))
+    up <- crT > adj
+    p_add <- ifelse(up, (crT - adj) / pmax(1e-6, 1 - adj), 0)
+    p_rem <- ifelse(!up, (adj - crT) / pmax(1e-6, adj), 0)
     mod <- live & !protect[, j]
     add <- mod & !has & U[, j] < p_add
     rem <- mod & has & U[, j] < p_rem

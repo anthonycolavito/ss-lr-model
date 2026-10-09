@@ -33,7 +33,7 @@
 # years fail the recent-work test only because they have no earnings while on
 # benefits; OCACT adds them back to the simulated disability insured rate. We
 # do the same, and the factors above apply to the simulated part only:
-#   disability insured = simulated x factor + on the rolls 4+ years / population
+#   disability insured = simulated x factor + on the rolls more than 3 years (December duration 4+: the methodology's footnote 3, "less than 4 years" meet the test on earnings) / population
 # History: Study 130 Table 6 (in current pay by age group, 2001-24), split by
 # duration and single age as in the December 2025 stock (scripts/09); 2025 the
 # stock itself; 1970-2000 V.C5 totals with the 2001 age-sex mix. Projection:
@@ -63,7 +63,7 @@ tr_dis50 <- c(`2025` = 0.759, `2100` = 0.774)
 long <- sim |> pivot_longer(c(fully, disability), names_to = "status", values_to = "sim") |>
   filter(!is.na(sim))
 
-# ---- 0. DINADD: disabled workers on the rolls 4+ years, by year, sex, age -------------
+# ---- 0. DINADD: disabled workers on the rolls more than 3 years (duration 4+), by year, sex, age -------------
 di <- readRDS("data/di_inputs.rds")
 # Fresh build: scripts/09 needs this script's rates before the DI stock exists,
 # so the first pass runs without DINADD (scripts/run_all.R: 07 -> 09 -> 10 -> 07 -> 09 -> 10).
@@ -80,7 +80,11 @@ shape <- st25 |> mutate(age = pmax(attained_age, 15L), g = ag[findInterval(age, 
   group_by(sex, g) |> mutate(w = all / sum(all), share_d4 = ifelse(all > 0, d4 / all, 0)) |> ungroup()
 t6 <- di$hist_inforce |> filter(sex != "T") |> mutate(sex = factor(as.character(sex), levels = c("M", "F"))) |>
   pivot_longer(all_of(ag), names_to = "g", values_to = "n")
+# within 65-66, each year's split follows its cohorts' NRA (R/di_remain.R; F-34)
+source("R/di_remain.R"); pcoh <- readRDS("data/params_by_cohort.rds")
 din_hist <- t6 |> inner_join(shape, by = c("sex", "g"), relationship = "many-to-many") |>
+  mutate(w = w * di_remain(year, age, pcoh) / pmax(di_remain(2025L, age, pcoh), 1e-9)) |>
+  group_by(year, sex, g) |> mutate(w = w / sum(w)) |> ungroup() |>
   transmute(year, sex, age, dinadd = n * w * share_d4)
 din_2025 <- st25 |> filter(duration >= 4) |> group_by(sex, age = attained_age) |>
   summarise(dinadd = sum(current_pay), .groups = "drop") |> mutate(year = 2025L)
@@ -91,7 +95,7 @@ din_early <- di$vc5 |> filter(year < 2001) |> select(year, dw) |>
 din_proj <- NULL
 if (file.exists("data/di_projection.rds")) {
   sa <- readRDS("data/di_projection.rds")$stock_age
-  if ("n_d4" %in% names(sa)) din_proj <- sa |> transmute(year, sex = factor(sex, levels = c("M", "F")), age = a, dinadd = n_d4)
+  if ("n_dinadd" %in% names(sa)) din_proj <- sa |> transmute(year, sex = factor(sex, levels = c("M", "F")), age = a, dinadd = n_dinadd)
 }
 if (is.null(din_proj)) {
   cat("No projected rolls yet (first pass): 2026-2100 hold the 2025 DINADD rate\n")

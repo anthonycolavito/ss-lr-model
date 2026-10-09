@@ -151,12 +151,14 @@ simulate_cohort_ocact <- function(cohort, p, qc_ratio, frac_points, low_power,
     cum <- cum + q
     fully <- cum >= need[j]
     a <- ages[j]
+    # 20 of the last 40 quarters, or under 31 the alternatives (F-34: the 20/40 test applies at every age)
+    r2040 <- rowSums(qcs[, max(1, j - 9):j, drop = FALSE]) >= 20
     recent <- if (a >= 31) {
-      rowSums(qcs[, (j - 9):j, drop = FALSE]) >= 20
+      r2040
     } else if (a >= 24) {
-      rowSums(qcs[, (j21 + 1):j, drop = FALSE]) >= half_needed[j]
+      r2040 | rowSums(qcs[, (j21 + 1):j, drop = FALSE]) >= half_needed[j]
     } else {
-      rowSums(qcs[, max(1, j - 2):j, drop = FALSE]) >= 6
+      r2040 | rowSums(qcs[, max(1, j - 2):j, drop = FALSE]) >= 6
     }
     st$fully[j] <- mean(fully)
     st$disability[j] <- if (a <= 69) mean(fully & recent) else NA

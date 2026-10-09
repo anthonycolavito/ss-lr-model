@@ -26,7 +26,7 @@ The one rule: anything in `data/` or `outputs/` can be rebuilt from `data-raw/` 
 
 ## Status
 
-Phases 0–6 are built (October 9, 2026): inputs, insured status, every beneficiary category, new-award benefit levels, benefits in current pay, annual benefits, and trust fund operations with the summary measures. The 75-year actuarial balance is −4.41% of payroll against the Trustees' −4.42% (F-33), with nothing fitted to cost or income. A comprehensive review (F-34) lists bugs to fix before Phase 7 (reforms). Scripts 17–19, 21–22 and 24–30 need the BEPUF 2020 files in `data-raw/bepuf/` (not in git; see `data-raw/SOURCES.md`).
+Phases 0–6 are built (October 9, 2026): inputs, insured status, every beneficiary category, new-award benefit levels, benefits in current pay, annual benefits, and trust fund operations with the summary measures. The 75-year actuarial balance is −4.45% of payroll against the Trustees' −4.42% (F-35), with nothing fitted to cost or income. A comprehensive review (F-34) found bugs that were fixed and rebuilt the same day (F-35). Scripts 17–19, 21–22 and 24–30 need the BEPUF 2020 files in `data-raw/bepuf/` (not in git; see `data-raw/SOURCES.md`).
 
 Rebuild everything with `Rscript scripts/run_all.R` (about 25 minutes on 2 cores; logs in `outputs/logs/`; `Rscript scripts/run_all.R 11` resumes from step 11). The scripts, in order:
 
@@ -44,7 +44,7 @@ Rebuild everything with `Rscript scripts/run_all.R` (about 25 minutes on 2 cores
 | `10_di_projection.R` | Disabled workers 2026–2100 by sex, entitlement age, duration and age; entitled and current pay (IBNR); incidence, deaths, recoveries, conversions | TR V.C5 2026–2035 exactly, 2036–2100 within ±2%; memo death (26.3 → 12.5) and recovery (18.7 → 11.1) rates; V.C5 gross prevalence |
 | `11_di_auxiliaries.R` | Dependents of disabled workers by category (minor, student, disabled adult child; young, aged, divorced spouse), 2001–2100: TR V.C5 totals split by OCACT-structured linkages | December 2025 Supplement counts by category; V.C5 totals |
 | `12_aged_widows.R` | Aged widow(er)s (equation 3.3.1) by age, sex and marital status, insured and uninsured, plus disabled widow(er)s; levels from TR V.C4 | Supplement 5.A1.6/5.A1.7 history 2012–2025; model alone vs V.C4 (F-15) |
-| `13_retired_workers.R` | Retired workers 2007–2100 by age and sex (equation 3.3.2): prevalence from nineteen Supplement editions, age-62 regression, MBA/PIA-based 63–69 with the age-66 NRA adjustment, converted DI added back; widow(er)s from 12 | TR V.C4 retired workers: 2026–2035 matched, 2036–2099 within −1.0% to +2.4%; entitlements at 70 vs 6.B5.1 |
+| `13_retired_workers.R` | Retired workers 2007–2100 by age and sex (equation 3.3.2): prevalence from nineteen Supplement editions, age-62 regression, MBA/PIA-based 63–69 with the age-66 NRA adjustment, converted DI added back; widow(er)s from 12 | TR V.C4 retired workers: 2026–2035 matched, 2036–2099 within −0.5% to +2.8%; entitlements at 70 vs 6.B5.1 |
 | `14_rw_entitlement_age.R` | Retired workers by attained age × age at entitlement (and converted DI), 2025–2100 | December 2025 total = Supplement 5.A1.1; 2026 entitlements vs 2025 actuals (6.B5.1) |
 | `15_oasi_auxiliaries.R` | Dependents of retired and deceased workers by category, 2025–2100: TR V.C4 totals split by OCACT-structured linkages | December 2025 Supplement counts by category; model alone vs V.C4 (F-16) |
 | `16_compare_tr.R` | Every projection against the 2026 TR (intermediate, low-cost, high-cost) and Supplement 4.C2, tagged input / fitted / set equal / tested: `outputs/tr_comparison.csv` | Shown on the comparison dashboard |
@@ -57,11 +57,11 @@ Rebuild everything with `Rscript scripts/run_all.R` (about 25 minutes on 2 cores
 | `23_lump_sum.R` | Lump-sum death payments, 2024–2100 (equation 3.3.13) | Supplement 6.D9 (2024 fitted, 2025 +7.6%) |
 | `24_post_entitlement.R` | Post-entitlement factors by sex and duration (retired, disabled, conversions), initial to ultimate 2026–2045 | Supplement 5.B4 and 5.D1 by edition, OCACT's window 2014–15 to 2023–24 |
 | `25_di_benefits.R` | Disabled-worker benefits in current pay by cohort, December 2025–2100; conversion benefits | Supplement 5.D1 and 5.A1.2 (December 2025, exact); DI benefits vs the TR in F-31 |
-| `26_rw_benefits.R` | Retired-worker benefits and PIAs in current pay (age × age at entitlement, conversions), December 2025–2100, net of the dual-entitlement excess | Supplement 5.A1.1 and 5.A3a by age (December 2025, exact with the excess); average PIA vs 5.B7 within 0.9% (check); 5.B4 by entitlement year within −4.4% to +3.6% (check) |
+| `26_rw_benefits.R` | Retired-worker benefits and PIAs in current pay (age × age at entitlement, conversions), December 2025–2100, net of the dual-entitlement excess | Supplement 5.A1.1 and 5.A3a by age (December 2025, exact with the excess); average PIA vs 5.B7 within 0.5% (check); 5.B4 by entitlement year within −4.4% to +3.6% (check) |
 | `27_aux_benefits.R` | Dependents' and survivors' average benefits (linkage × account holder's average PIA or DI benefit), 30 categories | Supplement 5.A1, 5.A1.3, 5.A1.5–5.A1.7 (December 2025, by construction) |
 | `28_dual_entitlement.R` | Dually entitled counts and excess amounts (OCACT's regressions) | Supplement 5.G2, 5.G3, 5.A14, 5.A15 (2025, by construction) |
-| `29_annual_benefits.R` | Annual scheduled benefits by trust fund, 2026–2100 | TR IV.A1/IV.A2 to 2035 and IV.B1 cost rates after: OASDI benefit rate within ±1.6% to 2090, +2.5% in 2100 (F-31) |
-| `30_trust_fund.R` | Trust fund operations by fund, annual income and cost rates, trust fund ratios, summarized rates, actuarial balance, unfunded obligation, depletion | TR IV.B1, IV.B5, IV.B6, IV.B8: 75-year actuarial balance −4.41% vs −4.42%; depletion OASI 2032, OASDI 2034 (F-33) |
+| `29_annual_benefits.R` | Annual scheduled benefits by trust fund, 2026–2100 | TR IV.A1/IV.A2 to 2035 and IV.B1 cost rates after: OASI benefits within −1.6% to +1.8% to 2090, +3.0% in 2100; DI +4.6–4.8% late (F-35) |
+| `30_trust_fund.R` | Trust fund operations by fund, annual income and cost rates, trust fund ratios, summarized rates, actuarial balance, unfunded obligation, depletion | TR IV.B1, IV.B5, IV.B6, IV.B8: 75-year actuarial balance −4.45% vs −4.42%; depletion OASI 2032, OASDI 2034 (F-35) |
 
 ## Setup
 

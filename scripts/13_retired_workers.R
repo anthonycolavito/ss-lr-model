@@ -79,15 +79,21 @@ cat("Retired workers after spreading age groups, 2007/2025 (published 31,527,728
 stopifnot(abs(chk$t[chk$year == 2025] - 53624664) < 10)
 
 # ---- 2. Disabled workers 62-66 in current pay -----------------------------------------------
-# 2025: the stock; 2015-2024: Study 130 Table 6 groups (60-64, 65-66) spread with
-# the 2025 single-age shape; 2026+: scripts/10.
+# 2025: the stock; 2007-2024: Study 130 Table 6 groups (60-64, 65-66) spread with the 2025 single-age
+# shape, the 65-66 group by each year's cohort NRA: at year-end those aged a born y - a remain on DI
+# with probability f(y, a) = min(1, max(0, NRA - a)) (DP-04), so the 2025 counts are first divided by
+# f(2025, a) (F-34; with the 2025 shape alone, 66 held half the group in years when NRA-66 cohorts had
+# all converted by December); 2026+: scripts/10.
+nra_b <- function(b) { v <- pc$nra_months[match(b, pc$birth_year)] / 12; ifelse(is.na(v), ifelse(b < 1937, 65, 67), v) }
+source("R/di_remain.R"); f_on <- function(y, a) di_remain(y, a, pc)
 cp25 <- st25 |> mutate(sex = as.character(sex)) |> group_by(sex, age = attained_age) |>
   summarise(n = sum(current_pay), .groups = "drop")
-shape <- cp25 |> filter(age >= 60) |> mutate(g = ifelse(age <= 64, "a60_64", "a65_66")) |>
-  group_by(sex, g) |> mutate(w = n / sum(n)) |> ungroup()
+shape <- cp25 |> filter(age >= 60) |> mutate(g = ifelse(age <= 64, "a60_64", "a65_66"), u = n / pmax(f_on(2025L, age), 1e-9)) |>
+  select(sex, g, age, u)
 di_hist <- di$hist_inforce |> filter(sex != "T", year >= 2007) |> mutate(sex = as.character(sex)) |>
   select(year, sex, a60_64, a65_66) |> pivot_longer(c(a60_64, a65_66), names_to = "g", values_to = "n") |>
-  inner_join(shape |> select(sex, g, age, w), by = c("sex", "g"), relationship = "many-to-many") |>
+  inner_join(shape, by = c("sex", "g"), relationship = "many-to-many") |>
+  mutate(w = u * f_on(year, age)) |> group_by(year, sex, g) |> mutate(w = w / sum(w)) |> ungroup() |>
   transmute(year, sex, age, dib = n * w)
 dib <- bind_rows(di_hist, cp25 |> transmute(year = 2025L, sex, age, dib = n),
                  dip$stock_age |> transmute(year, sex = as.character(sex), age = a, dib = cp)) |>
@@ -111,12 +117,13 @@ conv_early <- f61 |> filter(year >= 1975, year <= 2000) |> expand_grid(sh01 |> s
 c24 <- t5 |> filter(year == 2024)
 conv_hist <- bind_rows(conv_early, t5 |> filter(year <= 2024) |> transmute(year, sex, conv = conversion),
                        tibble(year = 2025L, sex = c24$sex, conv = 457350 * c24$conversion / sum(c24$conversion)))
-nra_b <- function(b) { v <- pc$nra_months[match(b, pc$birth_year)] / 12; ifelse(is.na(v), ifelse(b < 1937, 65, 67), v) }
+# Each year's conversions by year-end age: the cohort born y - a converts f(y - 1, a - 1) - f(y, a) of
+# its DI rolls during year y (DP-04's remain probabilities; F-34: the whole year had gone to one cohort)
 conv_age_of <- function(y) {
   cand <- 64:68
-  ok <- sapply(cand, function(a) { n <- nra_b(y - a); n > a - 1 & n <= a })
-  a <- cand[ok]; if (!length(a)) a <- 66
-  tibble(age = a, w = 1 / length(a))
+  w <- pmax(0, f_on(y - 1L, cand - 1L) - f_on(y, cand))
+  if (sum(w) == 0) return(tibble(age = 66L, w = 1))
+  tibble(age = cand[w > 0], w = w[w > 0] / sum(w))
 }
 conv_hist_age <- conv_hist |> rowwise() |> reframe(year, sex, conv, conv_age_of(year)) |>
   transmute(year, sex, age, conv = conv * w)
@@ -145,7 +152,8 @@ conv_stock <- {
 # ---- 4. Exposure and historical prevalence -----------------------------------------------------
 # Exposure = population x fully insured - DI in current pay - converted DI -
 # widow(er) beneficiaries x fully insured (insured widow(er)s drawing the widow
-# benefit instead of their own, RW-05).
+# benefit instead of their own, RW-05). OCACT subtracts its insured aged widow(er)s at every age
+# (equation 3.3.2, pRWWBB; its insured widows run to 85+), so this stays at all ages (RW-12).
 vc4 <- read_tr_single_year("V.C4", c("rw", "rw_spouse", "rw_child", "widow", "mother", "surv_child", "parent", "total"))
 # Aged widow(er)s: scripts/12 (history 2012-2025 from 5.A1.6, projection at
 # V.C4 levels); 2007-2011 hold 2012's rates by age (RW-05).

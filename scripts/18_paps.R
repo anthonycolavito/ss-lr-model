@@ -74,13 +74,13 @@ cat("Flagged as conversions:", a[, sum(conv)], "of", a[grp == "at FRA", .N], "at
 a[, onset := fifelse(conv, pmin(last_year + 1L, ent - 1L), NA_integer_)]
 a[conv == TRUE & is.na(onset), onset := ent - 1L]
 ci <- a[, which(conv)]
-cy_c <- computation_years(a$BY[ci], 1, a$onset[ci], birth_day = 1, disabled = TRUE)
+cy_c <- computation_years(a$BY[ci], 1, a$onset[ci], birth_day = 15, disabled = TRUE)
 aime_c <- aime(M[ci, , drop = FALSE], a$onset[ci], cy_c, first_year = 1951, last_year = a$onset[ci] - 1)
 a[ci, `:=`(aime_dib = aime_c, rel_dib = aime_c / py$pia_bp1[match(pmax(onset, 1979L), py$year)])]   # onsets before 1979: 1979 bend points
 
 # ---- 2. Map to 2025 awards and rake ----------------------------------------------------------------------
 pia_formula <- function(x, bp1, bp2) floor(10 * (0.9 * pmin(x, bp1) + 0.32 * pmax(0, pmin(x, bp2) - bp1) + 0.15 * pmax(0, x - bp2))) / 10
-colas <- function(from) { u <- unique(from); f <- sapply(u, function(y) if (y > 2024) 1 else prod(1 + py$cola[py$year %in% y:2024] / 100)); f[match(from, u)] }
+colas <- function(from) { u <- unique(from); f <- sapply(u, function(y) if (y > 2025) 1 else prod(1 + py$cola[py$year %in% y:2025] / 100)); f[match(from, u)] }
 a[, `:=`(rel_map = fifelse(conv, rel_dib, rel),
          elig25 = pmax(1979L, fifelse(IP == "D", 2024L, fifelse(conv, 2025L - (ent - onset), 2025L - (ACE - 62L)))))]
 a[, `:=`(bp1 = py$pia_bp1[match(elig25, py$year)], bp2 = py$pia_bp2[match(elig25, py$year)])]

@@ -99,7 +99,7 @@ D25 <- data.table(age = 62:70, M = num(a4[rows, 7]), F = num(a4[rows, 9]))
 D25[age == 70, `:=`(M = M + num(a4[20, 7]), F = F + num(a4[20, 9]))]
 conv25 <- c(M = num(a4[14, 7]), F = num(a4[14, 9]))
 pia_formula <- function(x, b1, b2) floor(10 * (0.9 * pmin(x, b1) + 0.32 * pmax(0, pmin(x, b2) - b1) + 0.15 * pmax(0, x - b2))) / 10
-colas <- function(from) { u <- unique(from); f <- sapply(u, function(y) if (y > 2024) 1 else prod(1 + py$cola[py$year %in% y:2024] / 100)); f[match(from, u)] }
+colas <- function(from) { u <- unique(from); f <- sapply(u, function(y) if (y > 2025) 1 else prod(1 + py$cola[py$year %in% y:2025] / 100)); f[match(from, u)] }
 nra_m <- function(b) pc$nra_months[match(b, pc$birth_year)]
 
 r[, w0 := 1]
@@ -120,19 +120,23 @@ cp[, elig25 := 2025L - (t - 62L)]
 cp[, `:=`(b1 = py$pia_bp1[match(elig25, py$year)], b2 = py$pia_bp2[match(elig25, py$year)])]
 cp[, pia25 := floor(10 * pia_formula(rel * b1, b1, b2) * colas(elig25)) / 10]
 cp[, red := t < ceiling(nra_m(2025L - t) / 12)]   # 2025 awards before the FRA: ages 62-66
-cp[, mba25 := pia25 * fifelse(red, 1 - pmin(pmax(0, nra_m(2025L - t) - 12 * t), 36) * 5 / 900 - pmax(nra_m(2025L - t) - 12 * t - 36, 0) * 5 / 1200,
-                              1 + pmax(0, 12 * pmin(t, 70) - nra_m(2025L - t)) / 12 * 0.08)]
+# benefit / PIA at award: claims spread over the months of each exact age (62: first month; R/claim_factor.R,
+# shared with scripts/22; PS-05)
+source("R/claim_factor.R")
+cf25 <- setNames(claim_factor_age(62:70, 2025L - 62:70, pc), 62:70)
+cp[, mba25 := pia25 * cf25[as.character(t)]]
 # Age 66 in 2025 holds both reduced claims (66y0m-66y9m, FRA 66y10m) and claims at the FRA. Split the
-# copies: the reduced share is 6.A4's new entitlements at 66 less 6.B5's FRA new entitlements (PS-02);
-# the reduced part takes the average reduction for 1-10 months early, the rest none.
-b5 <- read_sheet("data-raw/supplement/2026/6b.xlsx", "6.B5")
-b5r <- which(b5[, 1] == "2025"); fra_new <- c(M = num(b5[b5r[1], 11]), F = num(b5[b5r[2], 11])) / 100
-tot25 <- c(M = num(a4[6, 7]), F = num(a4[6, 9]))
-rho <- 1 - fra_new / (c(M = num(a4[15, 7]), F = num(a4[15, 9])) / tot25)
+# copies: the reduced share at 66 is 6.B4's reduced awards less 6.A4's awards at 62-65 (all reduced),
+# over 6.A4's new entitlements at 66 (PS-02, corrected F-34: 26.4% men, 26.3% women); the reduced part
+# takes the average reduction for 1-10 months early, the rest none.
+b4h <- read_sheet("data-raw/supplement/2026/6b.xlsx", "6.B4")
+red_tot <- c(M = num(b4h[39, 6]), F = num(b4h[73, 6]))     # men, women: all reduced awards
+under66 <- c(M = sum(num(a4[c(7, 12), 7])), F = sum(num(a4[c(7, 12), 9])))     # 62-64 and 65
+rho <- (red_tot - under66) / c(M = num(a4[15, 7]), F = num(a4[15, 9]))
 cat("Share of 2025 new entitlements at 66 that are reduced:", round(rho, 3), "\n")
 c66 <- cp[t == 66]
 cp <- rbind(cp[t != 66],
-            c66[, `:=`(w = w * rho[SEX], red = TRUE, mba25 = pia25 * (1 - mean(1:10) * 5 / 900))],
+            c66[, `:=`(w = w * rho[SEX], red = TRUE, mba25 = pia25 * fra_rest_factor(2025L - 66L, pc))],
             copy(cp[t == 66])[, `:=`(w = w * (1 - rho[SEX]), red = FALSE, mba25 = pia25)])
 brk <- c(-Inf, seq(300, 3300, 100), Inf)
 cp[, bin := as.integer(cut(pia25, brk, right = FALSE))]
@@ -146,7 +150,7 @@ conv_bins <- local({
   e <- copy(d$awardees[ID %in% p18cv$ID]); Mc <- M0[match(e$ID, d$awardees$ID), , drop = FALSE]
   last <- apply(Mc > 0, 1, function(z) { k <- which(z); if (length(k)) 1950L + max(k) else NA_integer_ })
   onset <- pmin(ifelse(is.na(last), e$ent - 1L, last + 1L), e$ent - 1L)
-  cyc <- computation_years(e$BY, 1, onset, birth_day = 1, disabled = TRUE)
+  cyc <- computation_years(e$BY, 1, onset, birth_day = 15, disabled = TRUE)
   am <- aime(Mc, onset, cyc, first_year = 1951, last_year = onset - 1L)
   rl <- am / py$pia_bp1[match(pmax(onset, 1979L), py$year)]
   el <- pmax(1979L, 2025L - (e$ent - onset)); b1c <- py$pia_bp1[match(el, py$year)]; b2c <- py$pia_bp2[match(el, py$year)]
@@ -213,7 +217,33 @@ S_cal[, SEX := as.character(SEX)]
 ent <- as.data.table(readRDS("data/rw_entitlement_age.rds")$entitlements)[year >= 2026, .(n = sum(n)), by = .(year, SEX = sex, t = pmin(ae, 70L))]
 base14 <- ent[year == 2026, .(SEX, t, n26 = n)]
 d25l <- melt(D25, id.vars = "age", variable.name = "SEX", value.name = "n25")[, .(SEX = as.character(SEX), t = age, n25)]
-tgtT <- ent[base14, on = c("SEX", "t")][d25l, on = c("SEX", "t")][, D := n25 * n / n26][, D := D / sum(D), by = .(year, SEX)]
+# Ages other than 66-67: 2025 awards x scripts/14's entitlements(T) / entitlements(2026).
+# 66-67 hold the FRA spike, which moves from exact age 66 (FRA 66y8m-66y10m, 2025-2026) to 67 (FRA 67,
+# 2027 on); scripts/14's December ages can't place it (EA-03). The 2025 awards at 66 are split into the
+# reduced claims (rho, PS-02) and the spike; per month of reduced claiming and per month of FRA births,
+# each is carried to later years by the months available (R/claim_factor.R), the spike at its exact
+# age, and both ages by the trend of scripts/14's entitlements at 66-67 relative to 2027 (PS-05).
+fsm <- as.data.table(fra_spike_months(2025:2100, pc))
+redm <- function(T) pmin(12L, pmax(0L, nra_m(T - 66L) - 792L))   # reduced months at exact age 66
+r66 <- rbindlist(lapply(c("M", "F"), function(sx) {
+  n66 <- d25l[SEX == sx & t == 66]$n25; n67 <- d25l[SEX == sx & t == 67]$n25
+  red_rate <- rho[[sx]] * n66 / redm(2025L); spike_rate <- (1 - rho[[sx]]) * n66 / fsm[year == 2025 & age == 66]$months
+  g <- ent[t %in% 66:67, .(n = sum(n)), by = .(year, SEX)][SEX == sx]
+  g[, g := if (any(year == 2027)) n / n[year == 2027] else 1][year == 2026, g := 1]
+  rbindlist(lapply(2026:2100, function(T) {
+    sp <- fsm[year == T]; s66 <- spike_rate * sum(sp$months[sp$age == 66]); s67 <- spike_rate * sum(sp$months[sp$age == 67])
+    gg <- g[year == T]$g
+    data.table(year = T, SEX = sx, t = 66:67, D = gg * c(red_rate * redm(T) + s66, n67 + s67),
+               spike = c(s66, s67) / c(red_rate * redm(T) + s66, n67 + s67))
+  }))
+}))
+tgtT <- ent[base14, on = c("SEX", "t")][d25l, on = c("SEX", "t")][, D := n25 * n / n26][!t %in% 66:67, .(year, SEX, t, D)]
+tgtT <- rbind(tgtT, r66[, .(year, SEX, t, D)])[, D := D / sum(D), by = .(year, SEX)]
+# share of each age's awards that are claims at the FRA itself (factor 1), for scripts/22
+spike_share <- rbind(data.table(year = 2025L, SEX = c("M", "F"), t = 66L, spike = 1 - rho[c("M", "F")]),
+                     r66[, .(year, SEX, t, spike)])
+cat("Reduced months at 66, and target shares at 66 / 67 (men), selected years:\n")
+print(tgtT[SEX == "M" & t %in% 66:67 & year %in% c(2026, 2027, 2030, 2050, 2100)][, D := round(D, 3)] |> dcast(year ~ t, value.var = "D"))
 paps_year <- function(T, sx) {
   S <- S_cal[SEX == sx][order(s)]$S; D <- if (T == 2025) S else tgtT[year == T & SEX == sx][order(t)]$D
   m <- shuttle(S, D); m <- m / rowSums(m)
@@ -229,6 +259,6 @@ print(dcast(avg79[SEX == "M" & year %in% c(2025, 2026, 2030, 2040, 2075, 2100)][
 
 dir.create("outputs", showWarnings = FALSE)
 write.csv(chk25, "outputs/paps_retired_checks.csv", row.names = FALSE)
-saveRDS(list(paps = pap_ret, paps_s_to_t = pst, base_dist = S_cal, targets = tgtT, check_2025 = chk25,
+saveRDS(list(paps = pap_ret, paps_s_to_t = pst, base_dist = S_cal, targets = tgtT, check_2025 = chk25, spike_share = spike_share,
              copies_2025 = cp[, .(ID = r$ID[k], SEX, s, t, w, rel, pia25, mba25)]), "data/paps_retired.rds")
 cat("Saved data/paps_retired.rds\n")

@@ -89,7 +89,7 @@ ib1 <- read_tr_single_year("IV.B1", c("oasi_inc", "oasi_cost", "oasi_bal", "di_i
 g1 <- read_tr_single_year("VI.G1", c("cpi", "awi", "payroll", "gdp", "ratio", "interest"))
 # After 2035 OCACT's administrative costs grow with beneficiaries x the AWI x (1 - productivity growth,
 # 1.63% ultimate); railroad interchange is held at its 2035 share of cost (AB-03)
-vc4 <- read_tr_single_year("V.C4", c("rw", "spouse", "child", "widow", "mother", "parent", "total"))
+vc4 <- read_tr_single_year("V.C4", c("rw", "spouse", "child", "widow", "mother", "surv_child", "parent", "total"))
 vc5t <- read_tr_single_year("V.C5", c("dw", "spouse", "child", "total", "pg", "pa"))
 bens <- bind_rows(vc4 |> transmute(year, fund = "OASI", nb = total), vc5t |> transmute(year, fund = "DI", nb = total))
 c35 <- ivA |> filter(year == 2035) |> transmute(fund, adm35 = adm, rr_share = coalesce(rr, 0) / cost)

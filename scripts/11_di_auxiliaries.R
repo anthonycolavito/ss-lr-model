@@ -50,6 +50,7 @@ years <- 2001:2100
 # ---- Disabled-worker prevalence P_DI(age, sex, year) ----------------------------------
 ag <- c("a15_19", "a20_24", "a25_29", "a30_34", "a35_39", "a40_44", "a45_49", "a50_54", "a55_59", "a60_64", "a65_66")
 glo <- c(15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65)
+source("R/di_remain.R"); pcoh <- readRDS("data/params_by_cohort.rds")
 cp25 <- st25 |> mutate(sex = as.character(sex), age = pmax(attained_age, 15L)) |>
   group_by(sex, age) |> summarise(n = sum(current_pay), .groups = "drop")
 shape <- cp25 |> mutate(g = ag[findInterval(age, glo)]) |> group_by(sex, g) |> mutate(w = n / sum(n)) |> ungroup()
@@ -57,6 +58,8 @@ dib <- bind_rows(
   di$hist_inforce |> filter(sex != "T") |> mutate(sex = as.character(sex)) |>
     pivot_longer(all_of(ag), names_to = "g", values_to = "n") |>
     inner_join(shape |> select(sex, g, age, w), by = c("sex", "g"), relationship = "many-to-many") |>
+    mutate(w = w * di_remain(year, age, pcoh) / pmax(di_remain(2025L, age, pcoh), 1e-9)) |>   # 65-66 by cohort NRA (F-34)
+    group_by(year, sex, g) |> mutate(w = w / sum(w)) |> ungroup() |>
     transmute(year, sex, age, n = n * w),
   cp25 |> mutate(year = 2025L),
   proj$stock_age |> transmute(year, sex = as.character(sex), age = a, n = cp)
