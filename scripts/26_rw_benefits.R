@@ -1,7 +1,7 @@
 # 26_rw_benefits.R
 #
 # Retired-worker benefits in current pay, December 2025-2100 (methodology 4.3, "Retired-Worker
-# Benefits" and "DI Conversions"; DECISIONS.md RB-01 to RB-05).
+# Benefits" and "DI Conversions"; DECISIONS.md RB-01 to RB-06).
 #
 # OCACT's matrix: age in current pay (62-94, 95+) x age at entitlement (62-70) plus a column for DI
 # conversions, by sex, started from the 100% MBR and scaled to Table 1-A totals; each year every cell
@@ -63,10 +63,10 @@ agek <- function(a) case_when(a < 90 ~ a, a < 95 ~ 90L, a < 100 ~ 95L, TRUE ~ 10
 
 # ---- December 2025 start ----------------------------------------------------------------------------------------
 # Through 2025 scripts/14 dates entitlement by exact age (EA-02), so in the 2025 stock ae is the exact
-# age (integer part) at entitlement. Each cell is split into the part entitled before its cohort's NRA
-# (reduced) and the rest (at NRA or later, with credits), exact age uniform over [ae, ae + 1):
+# age (integer part) at entitlement. Each cell is split into a reduced part and the rest, the shares
+# fitted to 5.A3a's counts by age (RB-06):
 #   r = 2025 award PIA at exact age ae (scripts/22; the PIA gradient with claiming age) x the cohort's
-#       reduction or credit factor at the midpoint of that part (its own NRA and credit rate)
+#       reduction or credit factor (its own NRA and credit rate) at the part's midpoint
 # and every (sex, age, part) is scaled to Supplement 5.A3a (reduced, by age) and 5.A1.1 minus 5.A3a
 # (not reduced, by age; conversions belong here) (RB-01). 5.B4 by year of entitlement is a check.
 pc <- readRDS("data/params_by_cohort.rds")
@@ -79,17 +79,33 @@ cf <- function(x, b) {                      # benefit / PIA at exact claiming ag
 nra_of <- function(b) { x <- pc$nra_months[match(b, pc$birth_year)] / 12; ifelse(is.na(x), 65, x) }
 di66 <- read_supp_5a12() |> filter(age == 66) |> transmute(sex = as.character(sex), r_conv = mba / (1 + cola[["2025"]]))
 pia25 <- readRDS("data/award_levels.rds") |> filter(type == "retired", year == 2025) |> transmute(sex = SEX, ae = age, pia)
-s25 <- rw |> filter(year == 2025, number > 0) |>
-  mutate(col = ifelse(class == "converted", "conv", as.character(ae)), b = 2025L - age,
-         y = ifelse(class == "converted", 2025L - (age - 67L), 2025L - (age - ae)),
-         s_red = ifelse(class == "converted", 0, pmin(pmax(nra_of(b) - ae, 0), 1))) |>
-  left_join(pia25, by = c("sex", "ae")) |> left_join(di66, by = "sex")
-parts <- bind_rows(
-  s25 |> filter(s_red > 0) |> mutate(part = "red", n = number * s_red, r = pia * cf(ae + s_red / 2, b)),
-  s25 |> filter(s_red < 1) |> mutate(part = "non", n = number * (1 - s_red),
-                                     r = ifelse(class == "converted", r_conv, pia * cf(ae + s_red + (1 - s_red) / 2, b)))) |>
-  mutate(ak = agek(age), yk = pmax(y, 1986L))
 a3a <- read_by_age(f5a, "5.A3a")
+s25 <- rw |> filter(year == 2025, number > 0) |>
+  mutate(col = ifelse(class == "converted", "conv", as.character(ae)), b = 2025L - age, nra = nra_of(b),
+         y = ifelse(class == "converted", 2025L - (age - 67L), 2025L - (age - ae)), ak = agek(age),
+         grp = case_when(class == "converted" ~ "conv", ae < floor(nra) ~ "below", ae < nra ~ "straddle", TRUE ~ "above")) |>
+  left_join(pia25, by = c("sex", "ae")) |> left_join(di66, by = "sex")
+# Reduced share fitted to 5.A3a's counts by age (RB-06, F-28): the cell whose year of age contains the
+# NRA takes the reduced count left after the cells entitled earlier (s_str, 0-1); where those cells
+# alone exceed it, part of them is treated as not reduced (s_below < 1: early benefits withheld under
+# the earnings test, reduction recomputed away at NRA).
+shares <- s25 |> group_by(sex, ak) |> summarise(below = sum(number[grp == "below"]), straddle = sum(number[grp == "straddle"]), .groups = "drop") |>
+  inner_join(a3a |> transmute(sex, ak = lo, red = n), by = c("sex", "ak")) |>
+  mutate(s_str = ifelse(straddle > 0, pmin(pmax((red - below) / straddle, 0), 1), 0), s_below = pmin(1, red / pmax(below, 1)))
+s25 <- s25 |> left_join(shares |> select(sex, ak, s_str, s_below), by = c("sex", "ak")) |>
+  mutate(s_red = case_when(grp == "below" ~ coalesce(s_below, 1), grp == "straddle" ~ coalesce(s_str, pmin(pmax(nra - ae, 0), 1)), TRUE ~ 0))
+parts <- bind_rows(
+  s25 |> filter(s_red > 0) |> mutate(part = "red", n = number * s_red,
+                                     r = pia * cf(ifelse(grp == "straddle", (ae + nra) / 2, ae + 0.5), b)),
+  s25 |> filter(s_red < 1) |> mutate(part = "non", n = number * (1 - s_red),
+                                     r = case_when(class == "converted" ~ r_conv,
+                                                   grp == "below" ~ pia,                     # reduction recomputed away
+                                                   grp == "straddle" ~ pia * cf((nra + ae + 1) / 2, b),
+                                                   TRUE ~ pia * cf(ae + 0.5, b)))) |>
+  mutate(yk = pmax(y, 1986L))
+cat("Reduced share by age: straddling cell s_str and cells entitled earlier s_below (fitted to 5.A3a):\n")
+print(as.data.frame(shares |> filter(ak %in% c(66:70, 75, 80, 85, 90, 95)) |> transmute(sex, age = ak, s_str = round(s_str, 2), s_below = round(s_below, 3)) |>
+  pivot_wider(names_from = sex, values_from = c(s_str, s_below))))
 tgt <- a11 |> left_join(a3a |> select(sex, lo, n_red = n, m_red = mba), by = c("sex", "lo")) |>
   mutate(n_red = coalesce(n_red, 0), m_red = coalesce(m_red, 0),
          n_non = n - n_red, m_non = ifelse(n_non > 0, (n * mba - n_red * m_red) / n_non, NA)) |>
@@ -129,7 +145,7 @@ print(as.data.frame(fit_y |> filter(yk %% 4 == 1 | yk == 1986) |> transmute(sex,
 tot25 <- s25 |> group_by(sex) |> summarise(model = sum(number * mba) / 1e3)
 cat("Total December 2025 monthly benefits, $ thousands: model", round(sum(tot25$model)), "vs 5.A1.1", round(sum(a11$n * a11$mba) / 1e3), "\n")
 
-cat("\nReduced share by age, model (exact-age split) vs 5.A3a / 5.A1.1:\n")
+cat("\nReduced share by age, model vs 5.A3a / 5.A1.1 (fitted, RB-06):\n")
 print(as.data.frame(cnt |> left_join(a11 |> transmute(sex, ak = lo, n_all = n), by = c("sex", "ak")) |> filter(ak %in% c(64, 65, 66, 67, 68, 70, 75, 80, 90)) |>
   transmute(sex, age = ak, model = round(n_red_model / n_all, 3), pub = round(n_red_pub / n_all, 3)) |> pivot_wider(names_from = sex, values_from = c(model, pub))))
 
