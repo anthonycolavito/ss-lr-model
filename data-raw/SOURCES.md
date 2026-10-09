@@ -31,3 +31,5 @@ Historical and projected program rules (AWI, COLAs, taxable maximum, bend points
 ## Definitions
 
 **Net compensation** (OCACT wage statistics): compensation subject to federal income tax as reported on Forms W-2, plus contributions to deferred compensation plans, minus deferred-compensation distributions already included in taxable compensation. It is the basis of the AWI. It covers all W-2 wage earners, including those in jobs not covered by Social Security, and excludes self-employment income. For 2023: $11.10 trillion across 173,670,935 wage earners, an average of $63,932.64.
+
+- `docs/reference/AN2026-6_death_disability_probabilities.pdf` — Actuarial Note 2026.6 (July 2026), Disability and Death Probability Tables for Insured Workers Who Attain Age 20 in 2026. Tables C–D: survival and disability status by single age, 20–67, 2026 TR intermediate. Supplied by user, 2026-10-08.
