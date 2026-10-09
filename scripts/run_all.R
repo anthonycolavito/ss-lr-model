@@ -35,7 +35,7 @@ steps <- c(
   "14" = "14_rw_entitlement_age.R",
   "15" = "15_oasi_auxiliaries.R",
   "16" = "16_compare_tr.R",
-  "17" = "17_bepuf_aime.R",       # 17-19, 21-22, 24-25 need data-raw/bepuf/ (not in git)
+  "17" = "17_bepuf_aime.R",       # 17-19, 21-22, 24-26 need data-raw/bepuf/ (not in git)
   "18" = "18_paps.R",
   "19" = "19_paps_shuttle.R",
   "20" = "20_ate_by_age.R",
@@ -43,7 +43,8 @@ steps <- c(
   "22" = "22_award_levels.R",
   "23" = "23_lump_sum.R",
   "24" = "24_post_entitlement.R",
-  "25" = "25_di_benefits.R"
+  "25" = "25_di_benefits.R",
+  "26" = "26_rw_benefits.R"
 )
 
 args <- commandArgs(trailingOnly = TRUE)
@@ -55,7 +56,7 @@ dir.create("outputs/logs", recursive = TRUE, showWarnings = FALSE)
 t_all <- Sys.time()
 bepuf_ok <- file.exists("data-raw/bepuf/BEPUF-2020-benefits.csv") && file.exists("data-raw/bepuf/bepuf_awardee_earnings.csv.gz")
 for (k in names(todo)) {
-  if (k %in% c("17", "18", "19", "21", "22", "24", "25") && !bepuf_ok) {
+  if (k %in% c("17", "18", "19", "21", "22", "24", "25", "26") && !bepuf_ok) {
     message("Skipping ", k, ": the BEPUF 2020 files aren't in data-raw/bepuf/ (see data-raw/SOURCES.md)")
     next
   }

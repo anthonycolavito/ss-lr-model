@@ -113,8 +113,6 @@ Open in Phase 4: OCACT's dispersion adjustment and two smaller rules (PE-05).
 
 Carry into Phase 5:
 
-- EA-03 / AL-03: award tables are by exact age at entitlement; scripts/14's counts
-  are December ages, about half a year later. Match them when building benefits.
 - scripts/10 doesn't yet save new DI entitlements by age at entitlement and sex
   for each year, or the full entitlement age × duration state by year; Phase 4
   (DI award PIAs) and Phase 5 (DI benefits by duration, workers' compensation
@@ -128,7 +126,10 @@ F-25, F-26). Retired from Supplement 5.B4 editions 2014-2026, DI from 5.D1 editi
 2012-2026, both over OCACT's window 2014-15 to 2023-24. DI benefits in current
 pay (25; DB-01 to DB-06): carried by cohort, started from 5.D1 and 5.A1.2, no
 separate workers' compensation offset (DB-04). Open: F-27 (DI cost trend +5%
-vs the TR by 2035; check once dependents and annualizing are in).
+vs the TR by 2035; check once dependents and annualizing are in). Retired-worker
+benefits (26; RB-01 to RB-05): OCACT's age x entitlement-age matrix, started from
+5.A3a and 5.A1.1 by age and reduction status; 5.B4 within 2.5% as a check (F-28,
+F-29). EA-03/AL-03 handled (RB-02, RB-03).
 
 After Phase 4: Phase 5 (benefits in current pay: starting PIA/MBA matrices,
 roll-forward with COLAs and post-entitlement factors, workers' compensation

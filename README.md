@@ -59,6 +59,7 @@ Rebuild everything with `Rscript scripts/run_all.R` (about 25 minutes on 2 cores
 | `23_lump_sum.R` | Lump-sum death payments, 2024–2100 (equation 3.3.13) | Supplement 6.D9 (2024 fitted, 2025 +7.6%) |
 | `24_post_entitlement.R` | Post-entitlement factors by sex and duration (retired, disabled, conversions), initial to ultimate 2026–2045 | Supplement 5.B4 and 5.D1 by edition, OCACT's window 2014–15 to 2023–24 |
 | `25_di_benefits.R` | Disabled-worker benefits in current pay by cohort, December 2025–2100; conversion benefits | Supplement 5.D1 and 5.A1.2 (December 2025, exact); DI cost-rate trend vs IV.B1 +5% by 2035 (F-27) |
+| `26_rw_benefits.R` | Retired-worker benefits in current pay (age × age at entitlement, conversions), December 2025–2100 | Supplement 5.A1.1 and 5.A3a by age (December 2025, exact); 5.B4 by entitlement year within ±2.5% (check); OASI cost-rate trend vs IV.B1 (F-29) |
 
 ## Setup
 
