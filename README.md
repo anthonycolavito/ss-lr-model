@@ -46,5 +46,6 @@ Phase 0 (data and parameters) is done. Run in order:
 | `12_aged_widows.R` | Aged widow(er)s (equation 3.3.1) by age, sex and marital status, insured and uninsured, plus disabled widow(er)s; levels from TR V.C4 | Supplement 5.A1.6/5.A1.7 history 2012–2025; model alone vs V.C4 (F-15) |
 | `13_retired_workers.R` | Retired workers 2007–2100 by age and sex (equation 3.3.2): prevalence from nineteen Supplement editions, age-62 regression, MBA/PIA-based 63–69 with the age-66 NRA adjustment, converted DI added back; widow(er)s from 12 | TR V.C4 retired workers: 2026–2035 matched, 2036–2099 within −0.6% to +2.4% |
 | `14_rw_entitlement_age.R` | Retired workers by attained age × age at entitlement (and converted DI), 2025–2100 | December 2025 total = Supplement 5.A1.1; 2026 entitlements vs 2025 actuals (6.B5.1) |
+| `15_oasi_auxiliaries.R` | Dependents of retired and deceased workers by category, 2025–2100: TR V.C4 totals split by OCACT-structured linkages | December 2025 Supplement counts by category; model alone vs V.C4 (F-16) |
 
 Phase 1 (insured status) is being revised to follow OCACT's method more closely; the disability-rolls adjustment waits for Phase 2. Next: Phase 2, disabled workers. Planning and the full checklist live in the build guide (Claude doc).
