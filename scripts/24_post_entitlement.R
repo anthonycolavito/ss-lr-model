@@ -88,8 +88,8 @@ comp <- bind_rows(
     comp_of(12L) |> mutate(type = "retired"))
 
 # ---- Initial (latest 3 pairs) and ultimate (10 pairs) ----------------------------------------------------------
-# DI: the 5.D1 editions for December 2016-2023 aren't in hand yet; until they are, the available pairs
-# before the 2024-25 one (2011-12 to 2014-15) stand in for both (PF-04).
+# Both use OCACT's window; if fewer than 10 in-window pairs exist for a type, the pairs before
+# 2024-25 stand in (PF-04).
 use <- hist |> group_by(type) |> filter(if (sum(unique(dec) %in% win) >= 10) dec %in% win else dec < 2025) |> ungroup()
 fac <- use |> group_by(type, sex, dur) |>
   summarise(n_pairs = n(), obs_ult = mean(pe), obs_init = mean(pe[dec %in% tail(sort(unique(dec)), 3)]), .groups = "drop") |>

@@ -57,7 +57,7 @@ Rebuild everything with `Rscript scripts/run_all.R` (about 25 minutes on 2 cores
 | `21_paps_projection.R` | PAPs moved to each year's cohort: earnings levels by age and sex and covered-worker rates (OCACT 4.2.1) | — (F-23) |
 | `22_award_levels.R` | Average award PIA and MBA by year, sex and age at entitlement, retired and disabled workers | 2025 averages vs 6.A4 |
 | `23_lump_sum.R` | Lump-sum death payments, 2024–2100 (equation 3.3.13) | Supplement 6.D9 (2024 fitted, 2025 +7.6%) |
-| `24_post_entitlement.R` | Post-entitlement factors by sex and duration (retired, disabled, conversions), initial to ultimate 2026–2045 | Supplement 5.B4 and 5.D1 by edition; DI awaits the December 2016–2023 editions (PF-04) |
+| `24_post_entitlement.R` | Post-entitlement factors by sex and duration (retired, disabled, conversions), initial to ultimate 2026–2045 | Supplement 5.B4 and 5.D1 by edition, OCACT's window 2014–15 to 2023–24 |
 
 ## Setup
 
