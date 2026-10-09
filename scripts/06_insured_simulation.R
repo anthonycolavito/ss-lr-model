@@ -273,10 +273,14 @@ f_params <- group_params(cal$best_f$slct)
 cat("\nChosen k: men", round(k_by_sex["M"], 2), "| women", round(k_by_sex["F"], 2), "\n")
 
 # ---- Full run ------------------------------------------------------------------
-sim <- bind_rows(
-  run_cohorts(cohorts, "M", 30000, m_params = m_params, k = k_by_sex["M"]),
-  run_cohorts(cohorts, "F", 30000, m_params = m_params, f_params = f_params, k = k_by_sex["F"])
-)
+# Men and women on separate cores; progress every 20 cohorts.
+sim <- bind_rows(parallel::mclapply(c("M", "F"), mc.cores = 2, FUN = function(sx) {
+  bind_rows(lapply(split(cohorts, ceiling(seq_along(cohorts) / 20)), function(cs) {
+    r <- run_cohorts(cs, sx, 30000, m_params = m_params, f_params = f_params, k = k_by_sex[sx])
+    message(format(Sys.time(), "%H:%M"), " ", sx, " cohorts through ", max(cs), " of ", max(cohorts))
+    r
+  }))
+}))
 insured_rates <- to_year_age(sim, k_by_sex) |> select(year, age, sex, fully, disability) |>
   arrange(sex, year, age)
 
