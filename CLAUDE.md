@@ -86,43 +86,35 @@ F-20 (insured rates above OCACT's 2023–2025 estimates at 25–54; a fix was
 tested and rejected, C-08) and the
 model-alone dependent gaps (F-13, F-15, F-16).
 
-## Next: Phase 4, new-award benefit levels (methodology 4.2)
+## Phase 4, new-award benefit levels (methodology 4.2): status
 
-Build guide checklist:
+Built (scripts 17-20; DECISIONS.md PB-, PP-, PS-, AL-):
 
-1. Define the PAP interface: 30 AIME sub-intervals in 1979 dollars (four of $45
-   below the first bend point of $180; fourteen between $180 and $1,085, nine of
-   $45 and five of $100; twelve above, ten of $200 and two of $1,000). The
-   retired-worker passage of the methodology says eighteen intervals between the
-   bend points, which overshoots $1,085; use the DI passage's layout for both.
-2. Generate PAPs (the share of new awards in each AIME interval) by age at
-   entitlement, sex and year, from ranypia run on an earnings-history source.
-3. Average award PIA = sum of PIA factor × interval length × PAP, indexed by AWI
-   and COLAs (4.3.c).
-4. Award MBA = PIA × reduction or delayed retirement credit for age at
-   entitlement.
+- Earnings histories: BEPUF 2020 (synthetic), worker beneficiaries entitled
+  2016-2020 (Anthony's choice, PB-01). The two files are too big for git; a new
+  container needs them re-sent into `data-raw/bepuf/` (`data-raw/SOURCES.md`;
+  `data-raw/bepuf/extract_bepuf_earnings.R` rebuilds the earnings extract from
+  SSA's zip). `run_all.R` skips 17-20 without them. Never use BEPUF's AIME/PIA
+  columns (withdrawn by SSA; Anthony found the error).
+- AIMEs with ranypia (17); conversions separated from FRA claims and DI PAPs (18);
+  retired PAPs with OCACT's shuttling, the 2025 base calibrated to Supplement
+  6.B4 and 6.A4 (19); award PIA and MBA by year, sex and age (20).
+- ranypia has no earnings test or totalization; checked that neither matters
+  for award levels (PB-05). Revisit the earnings test for NRA reforms.
 
-Open decision to settle first, with Anthony: **the earnings-history source for
-the PAPs** (the one gap that drives reform accuracy, since PIA factor reforms
-reweight the PAP bins). He has been weighing the earnings portion of SSA's
-Benefits and Earnings Public-Use File 2020 (BEPUF, synthetic) for his separate
-microsimulation work; the same choice should serve both. Present the options
-(BEPUF; synthetic histories from Supplement 4.B earnings by age and sex; others)
-with what each can and can't match, then let him decide. Calibration check for
-the levels: Supplement 6.B average PIA and MBA of new awards by age and sex,
-and later the TR's implied average benefits (cost ÷ beneficiaries).
+Open in Phase 4: PS-04, moving the careers to projected average taxable earnings
+by age and sex and to projected covered-worker rates (OCACT's 4.2.1). Until then
+PAPs change after 2025 only through shuttling.
 
-Carry into Phase 4 and 5:
+Carry into Phase 5:
 
-- EA-03: scripts/14's ages at entitlement are December ages, about half a year
-  later than the exact ages in Supplement 6.B5.1. Compute reductions and credits
-  at December age − ½ year.
-- DI new-award PIAs: −0.93% adjudication-level adjustment (TF Ops p. 53).
+- EA-03 / AL-03: award tables are by exact age at entitlement; scripts/14's counts
+  are December ages, about half a year later. Match them when building benefits.
 - scripts/10 doesn't yet save new DI entitlements by age at entitlement and sex
   for each year, or the full entitlement age × duration state by year; Phase 4
   (DI award PIAs) and Phase 5 (DI benefits by duration, workers' compensation
   offset) need them. Add them to its saved output.
-- Lump-sum death payments ($255) were moved here from Phase 3: count of deaths
+- Lump-sum death payments ($255) were moved to Phase 4/5 from Phase 3: count of deaths
   of insured workers with an eligible survivor × $255.
 - F-16: the spouse claiming-age response is weakly tested; revisit for NRA
   reforms once benefit levels exist.

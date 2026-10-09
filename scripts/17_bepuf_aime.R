@@ -61,7 +61,7 @@ print(sel[, .(n = .N, median = round(median(aime79)), mean = round(mean(aime79))
 
 # ---- Map to 2025 awards and compare with Supplement 6.B4 / 6.C1 ------------------------------------
 pia_formula <- function(a, bp1, bp2) floor(10 * (0.9 * pmin(a, bp1) + 0.32 * pmax(0, pmin(a, bp2) - bp1) + 0.15 * pmax(0, a - bp2))) / 10
-colas <- function(from) sapply(from, function(y) prod(1 + py$cola[py$year %in% y:2024] / 100))
+colas <- function(from) sapply(from, function(y) if (y > 2024) 1 else prod(1 + py$cola[py$year %in% y:2024] / 100))
 m25 <- sel[, .(ID, SEX, grp, di, ACE, rel)]
 m25[, elig25 := fifelse(di, 2024L, 2025L - (ACE - 62L))]
 m25[, `:=`(bp1 = py$pia_bp1[match(elig25, py$year)], bp2 = py$pia_bp2[match(elig25, py$year)])]
