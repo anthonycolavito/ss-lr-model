@@ -18,6 +18,7 @@ Status: **Adopted** (in use), **Provisional** (in use, to revisit), **Superseded
 | P-08 | Follow the actuaries' auxiliary beneficiary categories wherever possible | Faithfulness to OCACT | Collapse small categories | Adopted |
 | P-09 | Model horizon ends in 2100 (OCACT runs to 2105) | Published population ends in 2100 | Extrapolate population | Adopted |
 | P-10 | `scripts/run_all.R` rebuilds everything in order, each script in its own process. Insured status (07) and the DI rolls (09, 10) depend on each other, so a fresh build runs 07 once without DINADD (bootstrap), then 09 → 10 → 07 → 09 → 10 | Reproducible from a fresh clone; `data/` isn't committed (P-07) | Commit `data/*.rds` | Adopted |
+| P-11 | Disabled and retired workers stay bottom-up after 2035 (DP-08's constant DI incidence factor, RW-11's held retired factor); dollars (benefits, cost and income rates) are never calibrated to the Trustees. Considered and deferred (Anthony, 2026-10-09): grading the short-range factors out over 2036–2045 as OCACT does, then scaling disabled- and retired-worker counts to V.C4/V.C5 after the fact (additive or multiplicative reform response). Revisit once Phase 6's summary measures are in | Anthony's choice: see how the full model comes out first | Grade-out + after-the-fact scaling of worker counts | Adopted (revisit after Phase 6) |
 
 ## Phase 0: data and parameters
 

@@ -135,6 +135,9 @@ payroll within ±1.6% of the TR through 2090, +2.5% in 2100 (F-31). Phase 5 was
 reviewed independently (F-32); the excess share s in R/dual_excess.R is a share
 of the published combined average, so worker benefit = (1 - s) x published. Open: DI
 +4% in 2090-2100, mostly DI counts vs V.C5 (DP-08 fits only the average).
+P-11: Anthony wants the model built ground-up on OCACT's methods and assumptions,
+never calibrated in dollars; whether to scale worker counts to V.C4/V.C5 after
+the fact is deferred until Phase 6 is done.
 
 After Phase 4: Phase 5 (benefits in current pay: starting PIA/MBA matrices,
 roll-forward with COLAs and post-entitlement factors, workers' compensation
