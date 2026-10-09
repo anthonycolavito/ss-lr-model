@@ -34,3 +34,4 @@ Historical and projected program rules (AWI, COLAs, taxable maximum, bend points
 
 - `docs/reference/AN2026-6_death_disability_probabilities.pdf` — Actuarial Note 2026.6 (July 2026), Disability and Death Probability Tables for Insured Workers Who Attain Age 20 in 2026. Tables C–D: survival and disability status by single age, 20–67, 2026 TR intermediate. Supplied by user, 2026-10-08.
 - `data-raw/oact_insured/di_ins_hist.xlsx` — OCACT, estimated number of workers insured in the event of disability, by sex and age group (under 20, 5-year groups to 65–69), 1970–2026, thousands. Matches Supplement 4.C2 through about 2020; revised for 2021–2025 and adds 2026. Supplied by user, 2026-10-08.
+- `data-raw/supplement/5d1_vintages/` — Supplement Table 5.D1 (disabled workers by year of entitlement and sex) from the 2012 (PDF, December 2011), 2013, 2014, 2015 and 2016 (xlsx, December 2012–2015) editions. Used for IBNR factors. Supplied by user, 2026-10-08.
