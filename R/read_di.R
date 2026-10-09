@@ -141,13 +141,14 @@ read_supp_5a12 <- function(path = supp26("5a.xlsx")) {
 
 #' Table 5.D1: disabled-worker beneficiaries by year of entitlement and sex,
 #' December of the edition's data year. "Before YYYY" is returned as year
-#' YYYY - 1 with before = TRUE. Works for the 2025 and 2026 editions.
+#' YYYY - 1 with before = TRUE; mba = average monthly benefit. Works for the
+#' 2013-2016, 2025 and 2026 editions.
 read_supp_5d1 <- function(path = supp26("5d.xlsx")) {
   d <- read_text_sheet(path, "5.D1")
   yr <- trimws(d[[1]])
   keep <- !is.na(yr) & grepl("^([0-9]{4}|Before [0-9]{4})$", yr)
-  out <- rbind(data.frame(ent_year = yr[keep], sex = "M", number = as.numeric(d[[7]][keep])),
-               data.frame(ent_year = yr[keep], sex = "F", number = as.numeric(d[[11]][keep])))
+  out <- rbind(data.frame(ent_year = yr[keep], sex = "M", number = as.numeric(d[[7]][keep]), mba = as.numeric(d[[10]][keep])),
+               data.frame(ent_year = yr[keep], sex = "F", number = as.numeric(d[[11]][keep]), mba = as.numeric(d[[14]][keep])))
   out$before <- grepl("^Before", out$ent_year)
   out$ent_year <- ifelse(out$before, as.integer(sub("Before ", "", out$ent_year)) - 1L,
                          suppressWarnings(as.integer(out$ent_year)))
@@ -214,7 +215,7 @@ read_supp_6c2 <- function(path = supp26("6c.xlsx")) {
 }
 
 #' Table 5.D1 from a PDF edition (the 2012 Supplement, December 2011 data):
-#' single-year rows only. Returns ent_year, sex, number, before (FALSE).
+#' single-year rows only. Returns ent_year, sex, number, mba, before (FALSE).
 read_supp_5d1_pdf <- function(path) {
   L <- pdf_lines(path)
   i0 <- grep("Single-year data", L)[1]
@@ -223,8 +224,8 @@ read_supp_5d1_pdf <- function(path) {
   v <- lapply(strsplit(trimws(rows), "\\s+"), function(x) as.numeric(gsub(",", "", x)))
   v <- v[lengths(v) == 13]
   m <- do.call(rbind, v)
-  out <- rbind(data.frame(ent_year = as.integer(m[, 1]), sex = "M", number = m[, 6]),
-               data.frame(ent_year = as.integer(m[, 1]), sex = "F", number = m[, 10]))
+  out <- rbind(data.frame(ent_year = as.integer(m[, 1]), sex = "M", number = m[, 6], mba = m[, 9]),
+               data.frame(ent_year = as.integer(m[, 1]), sex = "F", number = m[, 10], mba = m[, 13]))
   out$before <- FALSE
   out$sex <- factor(out$sex, levels = c("M", "F"))
   stopifnot(all(abs(m[, 2] - m[, 6] - m[, 10]) <= 1))

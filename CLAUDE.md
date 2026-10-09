@@ -123,6 +123,10 @@ Carry into Phase 5:
   reforms once benefit levels exist.
 - D-04: ranypia's 1999 COLA is 2.4% (TR 2.5%); flagged for a ranypia fix.
 
+Phase 5 started: post-entitlement factors (24; DECISIONS.md PF-01 to PF-04,
+F-25, F-26). Retired from Supplement 5.B4 editions 2014-2026; DI from 5.D1, but
+the 2017-2024 editions (December 2016-2023) are still needed (PF-04).
+
 After Phase 4: Phase 5 (benefits in current pay: starting PIA/MBA matrices,
 roll-forward with COLAs and post-entitlement factors, workers' compensation
 offset, auxiliary averages, dual entitlement, annualizing), Phase 6 (trust fund
