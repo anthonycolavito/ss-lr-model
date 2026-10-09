@@ -13,3 +13,6 @@ outputs/logs/
 # BEPUF 2020 files are too large for GitHub (see data-raw/SOURCES.md)
 data-raw/bepuf/*.csv
 data-raw/bepuf/*.csv.gz
+
+# run_all.R console logs (per-step logs are in outputs/logs/)
+run_all*.log
