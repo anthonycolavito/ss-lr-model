@@ -76,6 +76,15 @@ Outputs Phase 4 builds on:
 | `data/aged_widows.rds`, `data/di_auxiliaries.rds`, `data/oasi_auxiliaries.rds` | widow(er)s and dependents by category, with model shares and published levels |
 | `data/params_by_year.rds`, `data/params_by_cohort.rds` | AWI, COLA, taxable max, bend points, QC; NRA, DRC and reduction by cohort (from ranypia) |
 
+## Comparison with OCACT
+
+`scripts/16_compare_tr.R` sets every projection against the TR and Supplement
+4.C2 (`outputs/tr_comparison.csv`); the dashboard "Model vs Trustees 2026"
+(https://claude.ai/artifact/LGUWYB7UszUQkyxoYDR36K) shows it. Rerun 16 and
+refresh that dashboard's two data files after changes. Open findings from it:
+F-20 (insured rates above OCACT's 2023–2025 estimates at 25–54) and the
+model-alone dependent gaps (F-13, F-15, F-16).
+
 ## Next: Phase 4, new-award benefit levels (methodology 4.2)
 
 Build guide checklist:

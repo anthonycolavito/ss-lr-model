@@ -33,7 +33,8 @@ steps <- c(
   "12" = "12_aged_widows.R",
   "13" = "13_retired_workers.R",
   "14" = "14_rw_entitlement_age.R",
-  "15" = "15_oasi_auxiliaries.R"
+  "15" = "15_oasi_auxiliaries.R",
+  "16" = "16_compare_tr.R"
 )
 
 args <- commandArgs(trailingOnly = TRUE)

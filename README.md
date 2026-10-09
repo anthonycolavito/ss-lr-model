@@ -49,6 +49,7 @@ Rebuild everything with `Rscript scripts/run_all.R` (about 25 minutes on 2 cores
 | `13_retired_workers.R` | Retired workers 2007–2100 by age and sex (equation 3.3.2): prevalence from nineteen Supplement editions, age-62 regression, MBA/PIA-based 63–69 with the age-66 NRA adjustment, converted DI added back; widow(er)s from 12 | TR V.C4 retired workers: 2026–2035 matched, 2036–2099 within −1.0% to +2.4%; entitlements at 70 vs 6.B5.1 |
 | `14_rw_entitlement_age.R` | Retired workers by attained age × age at entitlement (and converted DI), 2025–2100 | December 2025 total = Supplement 5.A1.1; 2026 entitlements vs 2025 actuals (6.B5.1) |
 | `15_oasi_auxiliaries.R` | Dependents of retired and deceased workers by category, 2025–2100: TR V.C4 totals split by OCACT-structured linkages | December 2025 Supplement counts by category; model alone vs V.C4 (F-16) |
+| `16_compare_tr.R` | Every projection against the 2026 TR (intermediate, low-cost, high-cost) and Supplement 4.C2, tagged input / fitted / set equal / tested: `outputs/tr_comparison.csv` | Shown on the comparison dashboard |
 
 ## Setup
 

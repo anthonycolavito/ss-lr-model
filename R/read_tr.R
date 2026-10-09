@@ -80,3 +80,22 @@ read_tr_single_year <- function(sheet, cols,
   stopifnot(!anyDuplicated(out$year))
   out
 }
+
+#' Read a single-year TR table with all four blocks (historical, intermediate,
+#' low-cost, high-cost), long by alternative. Used to put our gaps against the
+#' Trustees' range of outcomes.
+read_tr_single_year_all <- function(sheet, cols,
+                                    path = "data-raw/tr2026/SingleYearTRTables_TR2026.xlsx") {
+  x <- readxl::read_excel(path, sheet = sheet, col_names = FALSE,
+                          col_types = "text", .name_repair = "minimal")
+  x <- x[, seq_len(length(cols) + 1)]
+  names(x) <- c("label", cols)
+  header <- ifelse(grepl(":\\s*$", x$label), sub(":\\s*$", "", x$label), NA)
+  section <- header
+  for (i in seq_along(section)[-1]) if (is.na(section[i])) section[i] <- section[i - 1]
+  year <- suppressWarnings(as.integer(sub("[a-z]+$", "", x$label)))
+  keep <- !is.na(year) & section %in% c("Historical data", "Intermediate", "Low-cost", "High-cost")
+  out <- data.frame(year = year[keep], section = section[keep])
+  for (cn in cols) out[[cn]] <- tr_number(x[[cn]][keep])
+  out
+}
