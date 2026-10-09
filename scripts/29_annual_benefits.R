@@ -9,10 +9,11 @@
 #            and survivors (27);  DI = disabled workers (25) + DI dependents (27)
 #   Annual = sum over months i = 0..11 of (12 - i)/12 x B(t-1) + i/12 x B(t)/(1 + COLA_t)
 #          = 6.5 B(t-1) + 5.5 B(t) / (1 + COLA_t)                                   (OCACT's formula)
+#   (the dual-entitlement excess of spouses of disabled workers goes to DI, AB-04)
 #   x (1 + L_fund x the ratio of new entitlements to the stock relative to 2026): retroactive payments
 #   and other amounts outside the December levels, a loading by fund fitted to 2024 actual benefits (IV.A1/IV.A2) with 5.A4's December 2023 and 2024 totals
 #   (2025 is distorted by the Social Security Fairness Act's retroactive payments) (AB-02)
-#   + lump-sum death payments (23), OASI
+#   + lump-sum death payments (23), OASI (taken out of 2024's actual before fitting L)
 # Check: scheduled benefits 2026-2035 (IV.A1, IV.A2) and, after 2035, benefits implied by the cost
 # rates (IV.B1 x taxable payroll, VI.G1) less administration (OCACT's formula from 2035) and railroad
 # interchange (2035 share of cost) (AB-03).
@@ -29,7 +30,17 @@ cola <- setNames(py$cola / 100, py$year)
 rw <- readRDS("data/rw_benefits.rds")$totals |> group_by(year) |> summarise(v = sum(n * mba)) |> mutate(fund = "OASI", part = "retired workers")
 di <- readRDS("data/di_benefits.rds")$totals |> group_by(year) |> summarise(v = sum(cp * mba)) |> mutate(fund = "DI", part = "disabled workers")
 ax <- readRDS("data/aux_benefits.rds")$totals |> transmute(year, v = monthly, fund, part = "dependents and survivors")
-du <- readRDS("data/dual_entitlement.rds")$totals |> group_by(year) |> summarise(v = sum(monthly)) |> mutate(fund = "OASI", part = "dual-entitlement excess")
+# the excess of spouses of disabled workers is paid by DI (5.G3: wives and husbands of disabled workers,
+# 1.0% of the spouses' excess in December 2025), held at that share (AB-04)
+g3 <- as.matrix(readxl::read_excel("data-raw/supplement/2026/5g.xlsx", sheet = "5.G3", col_names = FALSE, col_types = "text", .name_repair = "minimal")); g3[is.na(g3)] <- ""
+l3 <- trimws(gsub("\\s+", " ", apply(g3[, 1:4], 1, paste, collapse = " ")))
+ex_of <- function(i) num(g3[i, 5]) * num(g3[i, 8])
+ir <- which(l3 == "Retired workers"); idw <- which(l3 == "Disabled workers")
+di_sp_share <- sum(ex_of(idw[1:2])) / sum(ex_of(c(ir[1:2], idw[1:2])))
+cat("DI share of the spouses' dual-entitlement excess:", round(di_sp_share, 4), "\n")
+du <- readRDS("data/dual_entitlement.rds")$totals |> mutate(di = ifelse(group %in% c("wife", "husband"), di_sp_share, 0)) |>
+  group_by(year) |> summarise(OASI = sum(monthly * (1 - di)), DI = sum(monthly * di)) |>
+  pivot_longer(c(OASI, DI), names_to = "fund", values_to = "v") |> mutate(part = "dual-entitlement excess")
 dec <- bind_rows(rw, di, ax, du)
 B <- dec |> group_by(year, fund) |> summarise(B = sum(v), .groups = "drop")
 
@@ -48,7 +59,9 @@ grab <- function(rows) { y <- suppressWarnings(as.integer(tr[rows, 1])); sec <- 
   tibble(year = y, sec = sec, cost = num(tr[rows, 8]), ben = num(tr[rows, 9]), adm = num(tr[rows, 10]), rr = num(tr[rows, 11])) |> filter(!is.na(year), sec <= 2) }
 ivA <- bind_rows(grab(1:(t2 - 1)) |> mutate(fund = "OASI"), grab(t2:nrow(tr)) |> mutate(fund = "DI")) |> select(-sec)
 ann <- function(b0, b1, y) 6.5 * b0 + 5.5 * b1 / (1 + cola[[as.character(y)]])
-L <- sapply(c("OASI", "DI"), function(f) ivA$ben[ivA$year == 2024 & ivA$fund == f] * 1e9 / ann(pick(2023)[[f]], pick(2024)[[f]], 2024) - 1)
+ls24 <- readRDS("data/lump_sum.rds")$lump_sum |> filter(year == 2024) |> pull(amount)      # in IV.A1's OASI benefits
+L <- sapply(c("OASI", "DI"), function(f) (ivA$ben[ivA$year == 2024 & ivA$fund == f] * 1e9 - ifelse(f == "OASI", ls24, 0)) /
+                                            ann(pick(2023)[[f]], pick(2024)[[f]], 2024) - 1)
 cat("\nLoading for retroactive and other payments, fitted to 2024 (AB-02):", round(L, 4), "\n")
 l25 <- sapply(c("OASI", "DI"), function(f) ann(pick(2024)[[f]], pick(2025)[[f]], 2025) * (1 + L[[f]]) / 1e9)
 cat("2025 with the same method, $ billions:", round(l25, 1), "vs actual", ivA$ben[ivA$year == 2025 & ivA$fund == "OASI"], ivA$ben[ivA$year == 2025 & ivA$fund == "DI"],

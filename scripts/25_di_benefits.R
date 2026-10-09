@@ -87,7 +87,9 @@ tot <- cells |> group_by(year, sex) |> summarise(mba = sum(cp * mba) / sum(cp), 
 by_age_dur <- cells |> mutate(dur = pmin(d, 9L)) |> group_by(year, sex, a, dur) |> summarise(mba = sum(cp * mba) / sum(cp), cp = sum(cp), .groups = "drop")
 
 # Conversions at NRA: the cohort's benefit in the conversion year (DB-05)
-conv <- dp$conversions_detail |> mutate(y = year - d) |> inner_join(coh, by = c("year", "sex", "e", "y")) |>
+# a few conversions are entitled at 67 and convert in the same year; scripts/10's saved state (after
+# conversion) has no e = 67 cohort, so they take the 66 cohort's benefit of that year
+conv <- dp$conversions_detail |> mutate(y = year - d, e = pmin(e, 66L)) |> inner_join(coh, by = c("year", "sex", "e", "y")) |>
   group_by(year, sex, a) |> summarise(mba = sum(conv * mba) / sum(conv), conv = sum(conv), .groups = "drop")
 
 # ---- Checks ---------------------------------------------------------------------------------------------------

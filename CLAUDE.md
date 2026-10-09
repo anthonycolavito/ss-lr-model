@@ -131,7 +131,9 @@ The Supplement's retired and award averages include the dual-entitlement excess
 award targets (19) and the women's post-entitlement factors (24), and projected
 with OCACT's regressions (28; DX-04 to DX-06). Dependents and survivors (27;
 AX-01 to AX-03), annual benefits by fund (29; AB-01 to AB-03): OASDI benefits /
-payroll within ±1.6% of the TR through 2090, +2.6% in 2100 (F-31). Open: DI
+payroll within ±1.6% of the TR through 2090, +2.5% in 2100 (F-31). Phase 5 was
+reviewed independently (F-32); the excess share s in R/dual_excess.R is a share
+of the published combined average, so worker benefit = (1 - s) x published. Open: DI
 +4% in 2090-2100, mostly DI counts vs V.C5 (DP-08 fits only the average).
 
 After Phase 4: Phase 5 (benefits in current pay: starting PIA/MBA matrices,

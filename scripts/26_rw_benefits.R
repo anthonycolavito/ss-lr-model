@@ -1,7 +1,7 @@
 # 26_rw_benefits.R
 #
 # Retired-worker benefits in current pay, December 2025-2100 (methodology 4.3, "Retired-Worker
-# Benefits" and "DI Conversions"; DECISIONS.md RB-01 to RB-06, DX-01).
+# Benefits" and "DI Conversions"; DECISIONS.md RB-01 to RB-07, DX-01).
 #
 # OCACT's matrix: age in current pay (62-94, 95+) x age at entitlement (62-70) plus a column for DI
 # conversions, by sex, started from the 100% MBR and scaled to Table 1-A totals; each year every cell
@@ -88,19 +88,33 @@ a3a <- read_by_age(f5a, "5.A3a")
 source("R/dual_excess.R")
 xa <- excess_by_age() |> select(sex, age, ex = excess, ex_tot = excess_total, n_pub = n)
 exk <- xa |> mutate(ak = agek(age)) |> group_by(sex, ak) |> summarise(exk = sum(ex_tot) / sum(n_pub), .groups = "drop")
+# 5.A3a's top group is 95+, 5.A1.1's are 95-99 and 100+: the reduced / not-reduced split works on
+# akp = 62-89, 90-94, 95+ (RB-07)
+akp_of <- function(ak) pmin(ak, 95L)
+a11p <- a11 |> mutate(akp = akp_of(lo)) |> group_by(sex, akp) |> summarise(mba = sum(n * mba) / sum(n), n = sum(n), .groups = "drop")
+exkp <- xa |> mutate(akp = akp_of(agek(age))) |> group_by(sex, akp) |> summarise(exk = sum(ex_tot) / sum(n_pub), .groups = "drop")
+# The excess is larger among reduced workers: 78% of dually entitled women are reduced (5.G1) against
+# 64% of retired women. Excess per worker by part: ex x f_part / (p x f_red + (1 - p) x f_non),
+# f_red = dual reduced share / worker reduced share, f_non likewise, p = the age's reduced share (RB-07)
+g1 <- as.matrix(readxl::read_excel("data-raw/supplement/2026/5g.xlsx", sheet = "5.G1", col_names = FALSE, col_types = "text", .name_repair = "minimal")); g1[is.na(g1)] <- ""
+r_all <- which(grepl("All dually", apply(g1[, 1:3], 1, paste, collapse = " ")))[1]; r_w <- which(trimws(g1[, 2]) == "Women")[1]
+dual_red <- c(F = num(g1[r_w, 6]) / num(g1[r_w, 4]), M = (num(g1[r_all, 6]) - num(g1[r_w, 6])) / (num(g1[r_all, 4]) - num(g1[r_w, 4])))
+wrk_red <- sapply(c(F = "F", M = "M"), function(sx) sum(a3a$n[a3a$sex == sx]) / sum(a11$n[a11$sex == sx]))
+fpart <- tibble(sex = c("F", "M"), f_red = dual_red[c("F", "M")] / wrk_red[c("F", "M")], f_non = (1 - dual_red[c("F", "M")]) / (1 - wrk_red[c("F", "M")]))
+cat("Dually entitled reduced share (5.G1) vs retired workers': women", round(dual_red[["F"]], 3), round(wrk_red[["F"]], 3), "; men", round(dual_red[["M"]], 3), round(wrk_red[["M"]], 3), "\n")
 s25 <- rw |> filter(year == 2025, number > 0) |>
   mutate(col = ifelse(class == "converted", "conv", as.character(ae)), b = 2025L - age, nra = nra_of(b),
-         y = ifelse(class == "converted", 2025L - (age - 67L), 2025L - (age - ae)), ak = agek(age),
+         y = ifelse(class == "converted", 2025L - (age - 67L), 2025L - (age - ae)), ak = agek(age), akp = akp_of(ak),
          grp = case_when(class == "converted" ~ "conv", ae < floor(nra) ~ "below", ae < nra ~ "straddle", TRUE ~ "above")) |>
   left_join(pia25, by = c("sex", "ae")) |> left_join(di66, by = "sex")
 # Reduced share fitted to 5.A3a's counts by age (RB-06, F-28): the cell whose year of age contains the
 # NRA takes the reduced count left after the cells entitled earlier (s_str, 0-1); where those cells
 # alone exceed it, part of them is treated as not reduced (s_below < 1: early benefits withheld under
 # the earnings test, reduction recomputed away at NRA).
-shares <- s25 |> group_by(sex, ak) |> summarise(below = sum(number[grp == "below"]), straddle = sum(number[grp == "straddle"]), .groups = "drop") |>
-  inner_join(a3a |> transmute(sex, ak = lo, red = n), by = c("sex", "ak")) |>
+shares <- s25 |> group_by(sex, akp) |> summarise(below = sum(number[grp == "below"]), straddle = sum(number[grp == "straddle"]), .groups = "drop") |>
+  inner_join(a3a |> transmute(sex, akp = lo, red = n), by = c("sex", "akp")) |>
   mutate(s_str = ifelse(straddle > 0, pmin(pmax((red - below) / straddle, 0), 1), 0), s_below = pmin(1, red / pmax(below, 1)))
-s25 <- s25 |> left_join(shares |> select(sex, ak, s_str, s_below), by = c("sex", "ak")) |>
+s25 <- s25 |> left_join(shares |> select(sex, akp, s_str, s_below), by = c("sex", "akp")) |>
   mutate(s_red = case_when(grp == "below" ~ coalesce(s_below, 1), grp == "straddle" ~ coalesce(s_str, pmin(pmax(nra - ae, 0), 1)), TRUE ~ 0))
 parts <- bind_rows(
   s25 |> filter(s_red > 0) |> mutate(part = "red", n = number * s_red,
@@ -112,17 +126,18 @@ parts <- bind_rows(
                                                    TRUE ~ pia * cf(ae + 0.5, b)))) |>
   mutate(yk = pmax(y, 1986L), cfp = ifelse(class == "converted", 1, r / pia))   # benefit / PIA of the part
 cat("Reduced share by age: straddling cell s_str and cells entitled earlier s_below (fitted to 5.A3a):\n")
-print(as.data.frame(shares |> filter(ak %in% c(66:70, 75, 80, 85, 90, 95)) |> transmute(sex, age = ak, s_str = round(s_str, 2), s_below = round(s_below, 3)) |>
+print(as.data.frame(shares |> filter(akp %in% c(66:70, 75, 80, 85, 90, 95)) |> transmute(sex, age = akp, s_str = round(s_str, 2), s_below = round(s_below, 3)) |>
   pivot_wider(names_from = sex, values_from = c(s_str, s_below))))
-tgt <- a11 |> left_join(a3a |> select(sex, lo, n_red = n, m_red = mba), by = c("sex", "lo")) |>
-  mutate(n_red = coalesce(n_red, 0), m_red = coalesce(m_red, 0),
+tgt <- a11p |> left_join(a3a |> transmute(sex, akp = lo, n_red = n, m_red = mba), by = c("sex", "akp")) |>
+  mutate(n_red = coalesce(n_red, 0), m_red = coalesce(m_red, 0), p = n_red / n,
          n_non = n - n_red, m_non = ifelse(n_non > 0, (n * mba - n_red * m_red) / n_non, NA)) |>
-  transmute(sex, ak = lo, red = m_red, non = m_non) |> pivot_longer(c(red, non), names_to = "part", values_to = "t") |>
-  left_join(exk, by = c("sex", "ak")) |> mutate(t = ifelse(t > 0, t - coalesce(exk, 0), t)) |> select(-exk)
-parts <- parts |> left_join(tgt, by = c("sex", "ak", "part")) |> group_by(sex, ak, part) |>
-  mutate(beta = ifelse(is.na(first(t)) | first(t) == 0 | sum(n) == 0, NA, first(t) / (sum(n * r) / sum(n)))) |> ungroup()
+  left_join(exkp, by = c("sex", "akp")) |> left_join(fpart, by = "sex") |>
+  mutate(den = p * f_red + (1 - p) * f_non, red = m_red - exk * f_red / den, non = m_non - exk * f_non / den) |>
+  select(sex, akp, red, non) |> pivot_longer(c(red, non), names_to = "part", values_to = "t")
+parts <- parts |> mutate(akp = akp_of(ak)) |> left_join(tgt, by = c("sex", "akp", "part")) |> group_by(sex, akp, part) |>
+  mutate(beta = ifelse(is.na(first(t)) | first(t) <= 0 | sum(n) == 0, NA, first(t) / (sum(n * r) / sum(n)))) |> ungroup()
 # a part the model has but the tables don't: scaled like the other part at that age
-parts <- parts |> group_by(sex, ak) |> mutate(beta = ifelse(is.na(beta), weighted.mean(beta, n, na.rm = TRUE), beta)) |> ungroup() |>
+parts <- parts |> group_by(sex, akp) |> mutate(beta = ifelse(is.na(beta), weighted.mean(beta, n, na.rm = TRUE), beta)) |> ungroup() |>
   mutate(mba = r * beta)
 # The model's reduced share at an age can differ from the tables' (exact-age split, F-28), so a last
 # factor by age brings each age's average to 5.A1.1
@@ -132,7 +147,7 @@ fin <- parts |> group_by(sex, ak) |> summarise(m = sum(n * mba) / sum(n), .group
 cat("Last factor by age to 5.A1.1 net of the excess: range", round(range(fin$g), 3), "; ages beyond 3%:\n"); print(fin |> filter(abs(g - 1) > 0.03))
 parts <- parts |> left_join(fin |> select(sex, ak, g), by = c("sex", "ak")) |> mutate(mba = mba * g, beta = beta * g) |> select(-g)
 cat("Scaling by age and part (reduced / not): range", round(range(parts$beta), 3), "\n")
-print(as.data.frame(parts |> distinct(sex, ak, part, beta) |> filter(ak %in% c(62, 64, 66, 67, 68, 70, 75, 80, 85, 90, 95, 100)) |>
+print(as.data.frame(parts |> group_by(sex, ak, part) |> summarise(beta = weighted.mean(beta, n), .groups = "drop") |> filter(ak %in% c(62, 64, 66, 67, 68, 70, 75, 80, 85, 90, 95, 100)) |>
   mutate(beta = round(beta, 3)) |> pivot_wider(names_from = c(sex, part), values_from = beta)))
 # k0 (RB-03): December 2025 average of the 2025 entitlement cohort (5.B4) / average 2025 award (6.A4,
 # retired workers including conversions) x (1 + COLA): the step from award amounts to December current
@@ -142,7 +157,7 @@ a4 <- as.matrix(readxl::read_excel("data-raw/supplement/2026/6a.xlsx", sheet = "
 i4 <- grep("^Total", trimws(a4[, 4]))[1]      # retired workers (the DI total follows)
 k0 <- tibble(sex = c("M", "F"), award = num(a4[i4, c(8, 10)])) |> left_join(b4 |> filter(yk == 2025) |> select(sex, dec = mba), by = "sex") |>
   transmute(sex, k0 = dec / award / (1 + cola[["2025"]]))
-cnt <- parts |> filter(part == "red") |> group_by(sex, ak) |> summarise(n_red_model = sum(n), .groups = "drop") |>
+cnt <- parts |> filter(part == "red") |> group_by(sex, ak = akp) |> summarise(n_red_model = sum(n), .groups = "drop") |>
   inner_join(a3a |> transmute(sex, ak = lo, n_red_pub = n), by = c("sex", "ak"))
 s25 <- parts |> group_by(year, sex, age, ae, class, col, y, yk, ak) |>
   summarise(r = sum(n * r) / sum(n), pia = sum(n * mba / cfp) / sum(n), mba = sum(n * mba) / sum(n), number = sum(n), .groups = "drop") |>

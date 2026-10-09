@@ -90,10 +90,15 @@ act_exc <- act |> filter(k %in% exc_coef$k) |> transmute(k, act = exc / pm25)
 pe <- proj_pct(exc_coef |> cross_join(pia |> filter(year == 2100) |> transmute(pm2100 = M)) |> mutate(targ = targ_usd / pm2100) |> select(-pm2100, -targ_usd), act_exc) |>
   mutate(avg_exc = v * M)
 fac <- function(y, a, z) a + (z - a) * pmin(pmax(y - 2025, 0), 11) / 11
+# OCACT's widower factors were measured on 2024; one scaling makes 2025's widower excess 5.G3's (DX-06)
+w25 <- pe |> filter(year == 2025, grepl("widow ", k)) |> transmute(b = sub("widow ", "", k), avg_exc) |>
+  left_join(tibble(b = c("62-74", "75-84", "85+"), f0 = c(0.6350, 0.5874, 0.5255)), by = "b") |>
+  left_join(cnt |> filter(year == 2025, grepl("widower", k)) |> transmute(b = sub("widower ", "", k), n), by = "b")
+wr_scale <- widr[4] / (sum(w25$n * w25$avg_exc * w25$f0) / sum(w25$n))
 exc <- bind_rows(pe |> select(year, k, avg_exc),
                  pe |> filter(k == "wife") |> transmute(year, k = "husband", avg_exc = avg_exc * fac(year, husb[4] / wives[4], 0.84)),
                  pe |> filter(grepl("widow ", k)) |> transmute(year, b = sub("widow ", "", k), avg_exc) |>
-                   left_join(tibble(b = c("62-74", "75-84", "85+"), f0 = c(0.6350, 0.5874, 0.5255), f1 = c(0.65, 0.60, 0.53)), by = "b") |>
+                   left_join(tibble(b = c("62-74", "75-84", "85+"), f0 = c(0.6350, 0.5874, 0.5255) * wr_scale, f1 = c(0.65, 0.60, 0.53)), by = "b") |>
                    transmute(year, k = paste0("widower ", b), avg_exc = avg_exc * fac(year, f0, f1)))
 du <- cnt |> select(year, k, n) |> inner_join(exc, by = c("year", "k")) |> mutate(monthly = n * avg_exc,
   group = sub(" .*", "", k), sex = ifelse(group %in% c("wife", "widow"), "F", "M"))

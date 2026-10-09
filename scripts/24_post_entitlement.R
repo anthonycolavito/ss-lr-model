@@ -61,14 +61,15 @@ d1 <- bind_rows(
 # Dual-entitlement excess (DX-01, DX-02): the retired averages in 5.B4 include the excess of spouse or
 # widow(er) benefits for dually entitled workers, which grows with age as husbands die (women: 6% of the
 # average at 67, 31% at 90). OCACT projects the excess separately, so its growth along each cohort is
-# taken out: k = (1 + s(a - 1)) / (1 + s(a)), s = excess share by age (R/dual_excess.R, December
-# 2025), averaged over the ages at entitlement (2025 entitlements by age, scripts/14) at each duration.
+# taken out: k = (1 - s(a)) / (1 - s(a - 1)), s = excess as a share of the published (combined)
+# average at that age (R/dual_excess.R, December 2025), so the worker benefit is (1 - s) x the
+# published one; averaged over the ages at entitlement (2025 entitlements by age, scripts/14).
 source("R/dual_excess.R")
 xs <- excess_by_age() |> select(sex, age, share)
 ent <- readRDS("data/rw_entitlement_age.rds")$entitlements |> filter(year == 2025) |> transmute(sex = as.character(sex), ae = as.integer(ae), w = n)
 xk <- ent |> crossing(dprev = 0:60) |> mutate(a0 = pmin(ae + dprev, 100L), a1 = pmin(ae + dprev + 1L, 100L)) |>
   left_join(xs |> rename(a0 = age, s0 = share), by = c("sex", "a0")) |> left_join(xs |> rename(a1 = age, s1 = share), by = c("sex", "a1")) |>
-  group_by(sex, dprev) |> summarise(k = sum(w * (1 + s0)) / sum(w * (1 + s1)), .groups = "drop")
+  group_by(sex, dprev) |> summarise(k = sum(w * (1 - s1)) / sum(w * (1 - s0)), .groups = "drop")
 ratios <- function(x, top, corr = NULL) {
   r <- x |> inner_join(x |> transmute(dec = dec + 1L, e, sex, n0 = n, mba0 = mba), by = c("dec", "e", "sex")) |>
     inner_join(py |> transmute(dec = year, cola), by = "dec") |>
