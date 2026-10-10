@@ -261,9 +261,6 @@ run_projection <- function(dfac, rfac25, rfac_ult, g, ipost = 1, years = 2026:21
       target <- 1000 * vc5$dw[vc5$year == t]
       f <- function(x) step(state, t, x, df, rf)$flows$stock - target
       x <- uniroot(f, c(0, 3), tol = 1e-6)$root
-    } else if (post_mode == "grade") {
-      # OCACT's IPROJG path: linear from the 2035 factor to the ultimate (1) over 2036-2045 (methodology 3.2.c)
-      x <- if (t <= 2045) ifac[["2035"]] + (1 - ifac[["2035"]]) * (t - 2035) / 10 else 1
     } else x <- ipost
     res <- step(state, t, x, df, rf)
     state <- res$state; ifac[as.character(t)] <- x
@@ -289,10 +286,6 @@ run_projection <- function(dfac, rfac25, rfac_ult, g, ipost = 1, years = 2026:21
 # The same loop sets one constant incidence factor for 2036-2100 (DP-08) so the
 # average gap of current pay to TR V.C5 over 2036-2100 is zero.
 g <- 0; ipost <- 1
-# DP-08 test switch: DI_POST2035=grade replaces the fitted constant factor with OCACT's grading to the
-# ultimate rates (no fit to V.C5 after 2035); default "fit" is DP-08
-post_mode <- Sys.getenv("DI_POST2035", "fit")
-cat("Post-2035 incidence:", post_mode, "\n")
 for (it in 1:10) {
   r <- run_projection(dfac, rfac25, rfac_ult, g, ipost)
   a <- r$adj
@@ -302,13 +295,12 @@ for (it in 1:10) {
          r26 = a$recovery_adj[a$year == 2026], rult = mean(a$recovery_adj[a$year >= 2036]))
   cat(sprintf("Calibration %d: death 2026 %.2f, 2100 %.2f | recovery 2026 %.2f, 2036-2100 %.2f | g %.4f | post-2035 incidence %.4f, mean gap %+.2f%%\n",
               it, m["d26"], m["d2100"], m["r26"], m["rult"], g, ipost, 100 * gap))
-  if (post_mode == "grade") gap_fit <- 0 else gap_fit <- gap
-  if (max(abs(m / c(26.3, 12.5, 18.7, 11.1) - 1)) < 0.003 && abs(gap_fit) < 0.001) break
+  if (max(abs(m / c(26.3, 12.5, 18.7, 11.1) - 1)) < 0.003 && abs(gap) < 0.001) break
   dfac <- dfac * 26.3 / m["d26"]
   g <- g + log(m["d2100"] / 12.5) / (2100 - 2026)
   rfac25 <- rfac25 * 18.7 / m["r26"]
   rfac_ult <- rfac_ult * 11.1 / m["rult"]
-  ipost <- ipost / (1 + gap_fit)^1.3        # stock responds less than one-for-one within the window
+  ipost <- ipost / (1 + gap)^1.3            # stock responds less than one-for-one within the window
 }
 flows <- r$flows; stock_age <- r$stock_age; age_flows <- r$age_flows; ifac <- r$ifac; state <- r$state
 conv_age <- r$conv_age
