@@ -46,8 +46,8 @@ the methodology document, the annualizing formula, and the calibration targets.
 setsid nohup Rscript scripts/run_all.R > run_all.log 2>&1 &
 ```
 
-About 25 minutes on 2 cores (06 is 21 of them); per-step logs go to
-`outputs/logs/`. Verified from a fresh clone on October 9, 2026: every step ran,
+About an hour on 2 cores (06 about 38 minutes, 21 about 20); per-step logs go to
+`outputs/logs/`; `Rscript scripts/run_all.R 21` resumes from a step. Verified from a fresh clone on October 9, 2026: every step ran,
 and every published target was hit exactly (insured at 62 and 50, V.C5 disabled
 workers 2026–2035, V.C4 retired workers 2026–2035, all V.C4/V.C5 levels). Setup needs `ranypia` (`remotes::install_github("anthonycolavito/ranypia")`),
 `Rcpp` with a compiler, `dplyr`, `tidyr`, `readr`, `readxl`, and `pdftotext`.
@@ -82,14 +82,17 @@ Outputs Phase 4 builds on:
 Two Claude docs (October 9, 2026): "Model vs Trustees 2026: Comparison of Outputs"
 (https://claude.ai/code/artifact/f3395695-a78b-4573-a008-f29c00a83a19) and the short
 model documentation, "ss-lr-model: Model Documentation"
-(https://claude.ai/code/artifact/55719bfb-e30c-4732-94a1-7d7dcef506c9). Both were
-written before the F-34 fixes; update them with F-35's results.
+(https://claude.ai/code/artifact/55719bfb-e30c-4732-94a1-7d7dcef506c9). Both carry
+F-35's results (updated October 9; Anthony's inline questions were answered in
+resolved comment threads in the comparison doc).
 
 
 `scripts/16_compare_tr.R` sets every projection against the TR and Supplement
 4.C2 (`outputs/tr_comparison.csv`); the dashboard "Model vs Trustees 2026"
 (https://claude.ai/artifact/LGUWYB7UszUQkyxoYDR36K) shows it. Rerun 16 and
-refresh that dashboard's two data files after changes. Open findings from it:
+refresh that dashboard's two data files after changes (they are artifact assets
+pointed to from its db `datasets/comparison` and `datasets/entitlement_ages`;
+refreshed October 11 with F-35's run). Open findings from it:
 F-20 (insured rates above OCACT's 2023–2025 estimates at 25–54; a fix was
 tested and rejected, C-08) and the
 model-alone dependent gaps (F-13, F-15, F-16).
@@ -143,14 +146,17 @@ reviewed independently (F-32); the excess share s in R/dual_excess.R is a share
 of the published combined average, so worker benefit = (1 - s) x published. Open: DI
 +4% in 2090-2100, mostly DI counts vs V.C5 (DP-08 fits only the average).
 P-11: Anthony wants the model built ground-up on OCACT's methods and assumptions,
-never calibrated in dollars; whether to scale worker counts to V.C4/V.C5 after
-the fact is deferred until Phase 6 is done.
+never calibrated in dollars. Revisited October 9 after Phase 6: OCACT's post-2035
+DI grading was tested against DP-08 (F-37: disabled workers 4.5-7.4% low) and
+Anthony kept DP-08; RW-11's held retired factor is what OCACT does (3.3.2).
+Scaling worker counts to V.C4/V.C5 after the fact was not adopted. The real fix
+for DP-08 is finding why the model alone runs low (half is disability insured).
 
 Phase 6 built (30; TF-01 to TF-07): trust fund operations and summary measures,
 nothing fitted to cost or income. 75-year actuarial balance −4.45% of payroll vs
 the Trustees' −4.42%; OASI 2032 and OASDI 2034 depletion as the TR (F-35). The
-75-year match partly reflects offsetting OASI/DI benefit gaps (F-31). Next:
-Anthony's P-11 revisit, then Phase 7 (reforms; the earnings test in ranypia then).
+75-year match partly reflects offsetting OASI/DI benefit gaps (F-31). DI's k0
+(1.047) matches the published 5.D1/6.A4 step at December rates (F-36).
 
 F-34's fixes are done (F-35). Two reviewer suggestions were checked against the
 methodology and rejected: DINADD stays at 4+ years (footnote 3), and widow(er)s stay
@@ -159,4 +165,7 @@ insured split past 70 is the open item there. Still open from the review: shuttl
 uses economy-wide covered rates, memo 2025 DI rates fitted as 2026, select DI
 timing, July vs December population for covered rates, the 2027 income dip,
 lump sums for deceased DI workers (immaterial), one-year DI award eligibility.
-Then Phase 7 (reforms; ranypia's earnings test).
+Next: Phase 7 (reforms: NRA increase and PIA factors first; revisit ranypia's
+earnings test and F-16's spouse claiming response for NRA reforms; a taxable
+payroll module calibrated to VI.G1 before the first revenue option). Ask
+Anthony which to start with.

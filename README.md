@@ -28,7 +28,7 @@ The one rule: anything in `data/` or `outputs/` can be rebuilt from `data-raw/` 
 
 Phases 0–6 are built (October 9, 2026): inputs, insured status, every beneficiary category, new-award benefit levels, benefits in current pay, annual benefits, and trust fund operations with the summary measures. The 75-year actuarial balance is −4.45% of payroll against the Trustees' −4.42% (F-35), with nothing fitted to cost or income. A comprehensive review (F-34) found bugs that were fixed and rebuilt the same day (F-35). Scripts 17–19, 21–22 and 24–30 need the BEPUF 2020 files in `data-raw/bepuf/` (not in git; see `data-raw/SOURCES.md`).
 
-Rebuild everything with `Rscript scripts/run_all.R` (about 25 minutes on 2 cores; logs in `outputs/logs/`; `Rscript scripts/run_all.R 11` resumes from step 11). The scripts, in order:
+Rebuild everything with `Rscript scripts/run_all.R` (about an hour on 2 cores; logs in `outputs/logs/`; `Rscript scripts/run_all.R 11` resumes from step 11). The scripts, in order:
 
 | Script | Builds | Checked against |
 | --- | --- | --- |
