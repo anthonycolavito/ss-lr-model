@@ -34,7 +34,7 @@ Rebuild everything with `Rscript scripts/run_all.R` (about an hour on 2 cores; l
 | --- | --- | --- |
 | `01_import_population.R` | Population by year, age, sex, marital status (Dec 31 and Jul 1) | TR V.A3, within rounding |
 | `02_import_mortality.R` | Death probabilities 1900–2100 | TR V.A4 life expectancy, within 0.06 years |
-| `03_program_parameters.R` | Program rules by year and birth cohort, from ranypia | TR V.C1–V.C3, exact except the 1999 COLA |
+| `03_program_parameters.R` | Program rules by year and birth cohort, from ranypia | TR V.C1–V.C3, exact except the 1999 COLA (stored as 2.4%; ranypia applies the 2.5% correction itself, D-04) |
 | `04_insured_inputs.R` | Covered-worker rates (Study 127 age paths after 2023), median earnings, QC amounts, earnings distribution, by age, sex, year | Total covered workers = TR IV.B4; men-women change in age-adjusted rates = TR |
 | `05_net_immigration.R` | Net immigration by age 1–99, sex, year (births excluded); LPR entrants; temporary or unlawfully present population by age | Totals within 1–2% of TR V.A2; population hits the Trustees' 2025 and 2100 totals, 2029 within 0.1 million |
 | `06_insured_simulation.R` | Fully and disability insured rates by age, sex, year, 1970–2100, OCACT's SLCT/SRCH method with immigrants (uses all cores; about 30 minutes on 2) | Supplement 4.C2 history; TR fully insured at age 62 in 2025 and 2100 |

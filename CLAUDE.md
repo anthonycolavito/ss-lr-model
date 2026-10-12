@@ -126,7 +126,10 @@ Still open:
 
 - F-16: the spouse claiming-age response is weakly tested; revisit for NRA
   reforms once benefit levels exist.
-- D-04: ranypia's 1999 COLA is 2.4% (TR 2.5%); flagged for a ranypia fix.
+- D-04 (corrected 2026-10-12): ranypia's 1999 COLA is right. Its `cola` series
+  stores 2.4% and its own functions add the 0.1-point correction; only this
+  model's raw-series COLA products miss it (18's conversions eligible by 1999,
+  about 0.1%).
 
 Phase 5 started: post-entitlement factors (24; DECISIONS.md PF-01 to PF-04,
 F-25, F-26). Retired from Supplement 5.B4 editions 2014-2026, DI from 5.D1 editions
@@ -165,7 +168,8 @@ insured split past 70 is the open item there. Still open from the review: shuttl
 uses economy-wide covered rates, memo 2025 DI rates fitted as 2026, select DI
 timing, July vs December population for covered rates, the 2027 income dip,
 lump sums for deceased DI workers (immaterial), one-year DI award eligibility.
-Next: Phase 7 (reforms: NRA increase and PIA factors first; revisit ranypia's
-earnings test and F-16's spouse claiming response for NRA reforms; a taxable
+Next: Phase 7 (reforms: NRA increase and PIA factors first; ranypia has had
+the earnings test since October 12, 2026 (`earnings_test()`, opt-in in its
+streams); revisit it and F-16's spouse claiming response for NRA reforms; a taxable
 payroll module calibrated to VI.G1 before the first revenue option). Ask
 Anthony which to start with.

@@ -85,9 +85,10 @@ chk1 <- inner_join(params_by_year, vc1, by = "year", suffix = c("", "_tr")) |>
   mutate(gap_awi = awi - awi_tr, gap_cola = cola - cola_tr, gap_taxmax = taxmax - taxmax_tr)
 
 # Known difference: the 1999 COLA was announced as 2.4% and later corrected
-# to 2.5% by legislation after a CPI error (V.C1 footnote f). ranypia carries
-# 2.4; the TR shows 2.5. This would understate PIAs of workers eligible before
-# 1999 by about 0.1%. Flagged for a fix in ranypia; tolerated here.
+# to 2.5% by legislation after a CPI error (V.C1 footnote f). ranypia's series
+# stores 2.4 and its own functions apply the correction for benefits from July
+# 2001, so the series must stay at 2.4 (D-04). Only COLA products over this
+# raw series miss the extra 0.1 point.
 known_cola <- chk1$year == 1999
 
 cat("V.C1, years", min(chk1$year), "-", max(chk1$year), "\n")
