@@ -21,6 +21,8 @@ A long-range Social Security (OASDI) projection model in R, built to follow the 
 | `outputs/` | Projection results and comparisons against the TR. |
 | `docs/reference/` | Methodology documents. |
 | `docs/DECISIONS.md` | Every modeling choice, with the reason, the alternatives, and its status. Read this before changing a method. |
+| `docs/MODEL_DOCUMENTATION.md` | What the model is and how it works, stage by stage: sources, calibration, departures from OCACT, limitations. |
+| `docs/COMPARISON_TR2026.md` | The baseline against the 2026 Trustees Report: summary measures, income and cost rates, benefits, beneficiaries, insured rates. |
 
 The one rule: anything in `data/` or `outputs/` can be rebuilt from `data-raw/` by running `scripts/` in order (program rules come from the ranypia package, P-06).
 
